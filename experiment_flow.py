@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
-
+import pickle
+import matplotlib.pyplot as plt
 
 class participant():
     def __init__(self, type):
