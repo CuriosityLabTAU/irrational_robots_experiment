@@ -42,7 +42,7 @@ for q in list(all_data[list(all_data.keys())[0]].keys())[:-1]:
             # q_psies = np.concatenate((q_psies, psi0), axis=1)
         qn += [q]
 
-tsne = TSNE(n_components=2, verbose=1, perplexity=40, n_iter=300)
+tsne = TSNE(n_components=2, verbose=1, perplexity=80, n_iter=300)
 tsne_results = tsne.fit_transform(q_psies.T)
 
 # pca = PCA(n_components=10)
@@ -56,8 +56,8 @@ tsne_df['yt'] = tsne_results[:,1]
 tsne_df['irr'] = qirr
 tsne_df['qn'] = qn
 
-# fg = sns.FacetGrid(data=tsne_df, hue='qn', hue_order=tsne_df['qn'].unique(), aspect=1.61)
-fg = sns.FacetGrid(data=tsne_df, hue='irr', hue_order=tsne_df['irr'].unique(), aspect=1.61)
+fg = sns.FacetGrid(data=tsne_df, hue='qn', hue_order=tsne_df['qn'].unique(), aspect=1.61)
+# fg = sns.FacetGrid(data=tsne_df, hue='irr', hue_order=tsne_df['irr'].unique(), aspect=1.61)
 fg.map(plt.scatter, 'xt', 'yt').add_legend()
 
 plt.show()
