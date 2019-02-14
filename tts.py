@@ -54,3 +54,5 @@ subscription_key = "4cfa53201ddd47eba2ae74d61facb4bb"
 app = TextToSpeech(subscription_key)
 app.get_token()
 app.save_audio()
+
+# todo : pitch...
