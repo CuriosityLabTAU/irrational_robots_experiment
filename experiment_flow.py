@@ -16,6 +16,7 @@ participant = {'type' : [],
 psi_robot1, H1 = get_quantum_state(rationality1)
 psi_robot2, H2 = get_quantum_state(rationality2)
 
+
 #### Loop that run all the stories for a specific scenario.
 for story in stories():
 
