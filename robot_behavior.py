@@ -3,6 +3,10 @@ import pandas as pd
 import pickle
 from quantum_calculations import *
 from itertools import permutations, combinations
+import json
+
+### read the story from json
+stories = json.load(open('story_dict.json'))
 
 
 ### from qubits number to representation in the code
@@ -146,6 +150,14 @@ def robots_rankings(H, psi):
 
     return probs_rankings
 
+def present_info(stories, story = None):
+    '''
+    send to robot/ tablet the story to present
+    :return:
+    '''
+
+    ### for test run:
+    print(stories[i])
 
 def get_from_kivi():
     np.random.randint(0,1)
@@ -165,11 +177,21 @@ def flow():
     robot1_state['0'] = psi0
     robot2_state['0'] = psi0
 
-    H1 = intialize_robots_H(rationality='rational', hs) # hs - to create the ir/rationality
-    H2 = intialize_robots_H(rationality='irrational', hs)
+
+    ### hs for testing
+    hs1 = {'ha': [.5], 'hb': [.4], 'hab': [.8],
+         'hc': [.2], 'hd': [.1], 'hcd': [.9],
+         'hac': [.5], 'had': [.5], 'hbc': [.5], 'hbd': [.5], 'hcd': [.5]}
+
+    hs2 = {'ha': [.2], 'hb': [.3], 'hab': [.9],
+         'hc': [.2], 'hd': [.4], 'hcd': [.7],
+         'hac': [.5], 'had': [.5], 'hbc': [.5], 'hbd': [.5], 'hcd': [.5]}
+
+    H1 = intialize_robots_H(rationality='rational', hs = hs1) # hs - to create the ir/rationality
+    H2 = intialize_robots_H(rationality='irrational', hs = hs2)
 
     ### present story 1
-    present_info(story == 0)
+    present_info(story = 0)
     cq = information['0']
     # --> ask the person to rate the probabilites
     person_buttons = get_from_kivi()
@@ -178,7 +200,7 @@ def flow():
                                                     question_qubits = cq['qq'], question_type = cq['qtype'])
 
     ### pesent more information
-    present_info(story == 1)
+    present_info(story = 1)
     cq = information['1']
     ### generate 1st robot answer
     H1, robot1_state['1'] = robot_behavior(H1, H_person, question_qubits= cq['qq'], psi=robot1_state['0'])
@@ -198,7 +220,7 @@ def flow():
     H_person = update_H(H_person, H_person_, update='person')
 
     ### present new information --> story 3
-    present_info(story == 3)
+    present_info(story = 3)
     cq = information['3']
     Uq = get_U_question()
     ### propogate the state using U
