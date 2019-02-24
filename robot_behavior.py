@@ -2,6 +2,8 @@ import numpy as np
 import pandas as pd
 import pickle
 from quantum_calculations import *
+from itertools import permutations, combinations
+
 
 ### from qubits number to representation in the code
 hq = {0:'a', 1:'b', 2:'c', 3:'d'}
@@ -94,10 +96,7 @@ def robot_behavior(H_robot, H_person, question_qubits = [0,1], psi = psi0):
     full_h = [H_robot[hs[0]], H_robot[hs[1]], H_robot[hs[2]]]
 
     ### calculate robots probability
-    p_i = get_general_p(full_h, all_q, '0', psi, n_qubits=4)
-    p_j = get_general_p(full_h, all_q, '1', psi, n_qubits=4)
-    p_ij = get_general_p(full_h, all_q, 'C', psi, n_qubits=4)
-    ps = [p_i, p_j, p_ij]
+    ps = robot_probs(psi, full_h, all_q, 'conj', n_qubits=4)
 
     total_H = compose_H(full_h, all_q, n_qubits=4)
     psi_final = get_psi(total_H, psi)
@@ -105,6 +104,48 @@ def robot_behavior(H_robot, H_person, question_qubits = [0,1], psi = psi0):
     generate_robot_behavior(ps)
 
     return H_robot, psi_final
+
+
+def robot_probs(psi, full_h, all_q, fallacy, n_qubits = 4):
+    ### calculate the probabilities of the robot
+    p_i = get_general_p(full_h, all_q, '0', psi, n_qubits=4)
+    p_j = get_general_p(full_h, all_q, '1', psi, n_qubits=4)
+
+    if fallacy == 'conj':
+        p_ij = get_general_p(full_h, all_q, 'C', psi, n_qubits=4)
+    elif fallacy == 'disj':
+        p_ij = get_general_p(full_h, all_q, 'D', psi, n_qubits=4)
+    ps = [p_i, p_j, p_ij]
+
+    if fallacy == 'both':
+        p_ijc = get_general_p(full_h, all_q, 'C', psi, n_qubits=4)
+        p_ijd = get_general_p(full_h, all_q, 'D', psi, n_qubits=4)
+        ps = [p_i, p_j, p_ijc, p_ijd]
+
+    return ps
+
+def robots_rankings(H, psi):
+    combs = combinations([0, 1, 2, 3], 2)
+    rankings = {}
+    for comb in combs:
+        full_h = ['h' + H[hq[comb[0]]],
+                  'h' + H[H[hq[comb[1]]]],
+                  'h' + H[H[hq[comb[0]]]] + H[H[hq[comb[1]]]]]
+        ps = robot_probs(full_h, comb, 'conj', psi, n_qubits=4)
+
+        rankings[str(comb[0])] = ps[0]
+        rankings[str(comb[1])] = ps[1]
+        rankings[str(comb[0]) + str(comb[1]) + 'c'] = ps[2]
+        # rankings[str(comb[0]) + str(comb[1]) + 'd'] = ps[3]
+
+    df_ranks = pd.DataFrame.from_dict(rankings)
+    df_ranks = df_ranks.T
+    df_ranks.columns = ['prob']
+    df_ranks = df_ranks.sort_values('prob')
+    probs_rankings = list(df_ranks.index)
+
+    return probs_rankings
+
 
 def get_from_kivi():
     np.random.randint(0,1)
@@ -164,7 +205,7 @@ def flow():
 
     H1, robot1_state['2'] = robot_behavior(H1, H_person, question_qubits= cq['qq'], psi=robot1_state['1'])
     ### generate 2nd robot answer
-    H1, robot2_state['2'] = robot_behavior(H2, H_person, question_qubits= cq['qq'], psi=robot2_state['1'])
+    H2, robot2_state['2'] = robot_behavior(H2, H_person, question_qubits= cq['qq'], psi=robot2_state['1'])
 
     ### Ask the person which robot do you agree with?
     person_buttons = get_from_kivi()
@@ -176,6 +217,7 @@ def flow():
 
     ### robots gives ranking
     ### todo: function that based on the robots' states --> calculate probs --> output as ranking.
+    rankings = robots_rankings(H1, psi=robot2_state['2'])
 
     ### The detective ask the person who did it?
     ### Based on the answer we would know if one changed the ranking after seeing the robots rankings,
