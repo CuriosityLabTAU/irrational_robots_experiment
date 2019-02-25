@@ -1,23 +1,36 @@
+### general imports
 import numpy as np
 import pandas as pd
 import pickle
+
+### my calculations todo: need to update once the model is finished
 from quantum_calculations import *
+
+### iterations imports
 from itertools import combinations
 from random import shuffle
 import json
 
+### imports for the robot
+import rospy
+from std_msgs.msg import String
+
 # ### read the story from json
 # stories = json.load(open('story_dict.json'))
 
+### path to sound files on the robot
+robot_sound_path = '/home/nao/naoqi/sounds/HCI/'
+### path to behaviors on the robot
+robot_behavior_path = 'facilitator-6ea3b8/'
 
 ### from qubits number to representation in the code
 hq = {0:'a', 1:'b', 2:'c', 3:'d'}
 
 ### questions and the qubits they ask about
-information = {'0': {'qq': [0, 1], 'qtype': 'ranking'},
-               '1': {'qq': [2, 3], 'qtype': 'ranking'},
-               '2': {'qq': [0, 2], 'qtype': 'ranking'},
-               '3': {'qq': [1, 3], 'qtype': 'ranking'},}
+information = {'0': {'qq': [0, 1], 'qtype': 'rate'},
+               '1': {'qq': [2, 3], 'qtype': 'rate'},
+               '2': {'qq': [0, 2], 'qtype': 'rate'},
+               '3': {'qq': [1, 3], 'qtype': 'rank'},}
 
 
 ### initial psi for evereyone
@@ -25,30 +38,31 @@ plus = np.array([1, 0, 0, 1]) / np.sqrt(2)
 psi0 = np.kron(plus, plus).reshape(16,1)
 
 ### dummy varibales for checking the code
-stories = ['a', 'b', 'c', 'd']
+stories = ['a', 'b', 'c', 'd'] # add questions: which robot do you agree with?, rank in descending order. etc.
 
 ### hs for testing
-hs1 = {'ha': [.5], 'hb': [.4], 'hab': [.8],
-       'hc': [.2], 'hd': [.1], 'hcd': [.9],
-       'hac': [.5], 'had': [.5], 'hbc': [.5], 'hbd': [.5], 'hcd': [.5]}
+hs1 = {'h_a': [.5], 'h_b': [.4], 'h_ab': [.8],
+       'h_c': [.2], 'h_d': [.1], 'h_cd': [.9],
+       'h_ac': [.5], 'h_ad': [.5], 'h_bc': [.5], 'h_bd': [.5], 'h_cd': [.5]}
 
-hs2 = {'ha': [.2], 'hb': [.3], 'hab': [.9],
-       'hc': [.2], 'hd': [.4], 'hcd': [.7],
-       'hac': [.5], 'had': [.5], 'hbc': [.5], 'hbd': [.5], 'hcd': [.5]}
+hs2 = {'h_a': [.2], 'h_b': [.3], 'h_ab': [.9],
+       'h_c': [.2], 'h_d': [.4], 'h_cd': [.7],
+       'h_ac': [.5], 'h_ad': [.5], 'h_bc': [.5], 'h_bd': [.5], 'h_cd': [.5]}
 
 def robots_answering_order():
-    robots = [1,2]
-    return shuffle(robots)
+    order = [1,2]
+    shuffle(order)
+    return order
 
 def intialize_robots_H(rationality, hs = None):
-    H = {'ha': [], 'hb': [], 'hab': [],
-         'hc': [], 'hd': [], 'hcd': [],
-         'hac': [], 'had': [], 'hbc': [], 'hbd': [], 'hcd': []}
+    H = {'h_a': [], 'h_b': [], 'h_ab': [],
+         'h_c': [], 'h_d': [], 'h_cd': [],
+         'h_ac': [], 'h_ad': [], 'h_bc': [], 'h_bd': [], 'h_cd': []}
     if hs == None:
         if rationality  == 'rational':
-            H['hab'] = 1
+            H['h_ab'] = 1
         elif rationality  == 'irrational':
-            H['hab'] = 2
+            H['h_ab'] = 2
     else:
         for k, v in hs.items():
             H[k] = v
@@ -56,17 +70,17 @@ def intialize_robots_H(rationality, hs = None):
 
 
 def extract_info_from_buttons(person_buttons, question_type):
-    if question_type == 'ratings':
-        person_probs = []
+    if question_type == 'rate':
+        person_probs = {}
         person_probs['A']   = person_buttons[0]
         person_probs['B']   = person_buttons[1]
         person_probs['A_B'] = person_buttons[2]
         return person_probs
-    elif question_type == 'rankings':
-        perosn_rankings = []
+    elif question_type == 'rank':
+        person_rankings = person_buttons.copy()
         for i, button in enumerate(person_buttons):
-            perosn_rankings[i] = person_buttons[i]
-        return perosn_rankings
+            person_rankings[i] = person_buttons[i]
+        return person_rankings
     elif question_type == 'agree':
         if person_buttons[0] == 1:  # left
             return 1
@@ -88,26 +102,45 @@ def question_h_keys(question_qubits):
     i = hq[question_qubits[0]]
     j = hq[question_qubits[1]]
     ij = i+j
-    return ['h' + s for s in [i, j, ij]]
+    return ['h_' + s for s in [i, j, ij]]
 
 
 def update_H(H_robot, H_person, question_qubits, update = 'robot'):
     '''Update the robot's H to be equal to the person.'''
     hs = question_h_keys(question_qubits)
-    for h in hs:
+    for h in H_person.keys():
         if update == 'robot':
             H_robot[h] = H_person[h]
         else:
             H_person[h] = H_robot[h]
     return H_robot, hs
 
-def generate_robot_behavior(which_robot, ps, type = 'ranking'):
+def generate_robot_behavior(which_robot, ps, type = 'rate'):
     '''
     send to the robot (with ROS) what to do.
     :param ps: probabilities
     :param type: ranking/ rating
     :return:
     '''
+
+    robot_publisher = rospy.Publisher('to_nao_%s' % which_robot, String, queue_size=10)
+    rospy.init_node('manager_node')  # init a listener:
+    rospy.Subscriber('nao_state', String, callback_nao_state)
+
+    nao_message = {"action": "run_behavior",
+                   "parameters": local_action_parameters}
+    robot_publisher.publish(json.dumps(nao_message))
+
+    the_action = robot_sound_path + 'general_not_same.wav'
+    nao_message = {"action": 'play_audio_file',
+                   "parameters": [the_action]}
+    robot_publisher.publish(json.dumps(nao_message))
+
+
+    if type == 'rate':
+        pass
+    elif type == 'rank':
+        pass
     pass
 
 def robot_behavior(which_robot, H_robot, H_person, question_qubits = [0,1], psi = psi0):
@@ -149,23 +182,26 @@ def robots_rankings(H, psi):
     combs = combinations([0, 1, 2, 3], 2)
     rankings = {}
     for comb in combs:
-        full_h = ['h' + H[hq[comb[0]]],
-                  'h' + H[H[hq[comb[1]]]],
-                  'h' + H[H[hq[comb[0]]]] + H[H[hq[comb[1]]]]]
-        ps = robot_probs(full_h, comb, 'conj', psi, n_qubits=4)
+        comb = list(comb)
+        q1, q2  = hq[comb[0]], hq[comb[1]]
+        q12 = q1 + q2
+        full_h = [H['h_' + q1],
+                  H['h_' + q2],
+                  H['h_' + q12]]
+        ps = robot_probs(psi, full_h, comb, 'conj', n_qubits=4)
 
-        rankings[str(comb[0])] = ps[0]
-        rankings[str(comb[1])] = ps[1]
-        rankings[str(comb[0]) + str(comb[1]) + 'c'] = ps[2]
+        rankings[q1] = ps[0].flatten()
+        rankings[q2] = ps[1].flatten()
+        rankings[q12 + 'c'] = ps[2].flatten()
         # rankings[str(comb[0]) + str(comb[1]) + 'd'] = ps[3]
 
     df_ranks = pd.DataFrame.from_dict(rankings)
     df_ranks = df_ranks.T
     df_ranks.columns = ['prob']
-    df_ranks = df_ranks.sort_values('prob')
+    df_ranks = df_ranks.sort_index(by = 'prob')
     probs_rankings = list(df_ranks.index)
 
-    return probs_rankings
+    return probs_rankings, df_ranks
 
 def present_info(stories, story = None):
     '''
@@ -174,10 +210,22 @@ def present_info(stories, story = None):
     '''
 
     ### for test run:
-    print(stories[i])
+    print(stories[story])
 
-def get_from_kivi():
-    np.random.randint(0,1)
+def get_from_kivi(test = True, qtype = 'rate'):
+    if test:
+        if qtype == 'agree':
+            return np.random.randint(0,1)
+        elif qtype == 'rate':
+            return [np.random.randint(1,10),np.random.randint(1,10),np.random.randint(1,10)]
+        elif qtype == 'rank':
+            temp = np.arange(1,12)
+            shuffle(temp)
+            return temp
+    else:
+        ### get the real data from kivi
+        pass
+
 
 def get_U_question():
     np.eye(16,16)
@@ -198,7 +246,8 @@ def flow():
     H2 = intialize_robots_H(rationality='irrational', hs = hs2)
 
     robots = {'H': {1:H1, 2:H2},
-              'state' : {1: robot1_state, 2: robot2_state}}
+              'state' : {1: robot1_state, 2: robot2_state},
+              'rankings': {1:[], 2:[]}}
 
     ### present story 1
     present_info(stories, 0)
@@ -229,7 +278,7 @@ def flow():
     H_person_, person_state['2'] = person_parameters(person_buttons, person_state=person_state['0'],
                                                      question_qubits=cq['qq'], question_type=cq['qtype'])
     ### update current H of the person
-    H_person = update_H(H_person, H_person_, update='person')
+    H_person, _ = update_H(H_person, H_person_, cq['qq'], update='person')
 
     ### present new information --> story 3
     present_info(stories, 3)
@@ -246,12 +295,13 @@ def flow():
     chosen_robot = extract_info_from_buttons(person_buttons, question_type='agree')
 
     ### ask the person to rank all the probabilites and the conjunction between them.
-    person_buttons = get_from_kivi()
-    person_rankings = extract_info_from_buttons(person_buttons, question_type='ranking')
+    person_buttons = get_from_kivi(qtype='rank')
+    person_rankings = extract_info_from_buttons(person_buttons, question_type='rank')
 
     ### robots gives ranking
     for r in answering_order:
-        rankings = robots_rankings(robots['H'][r], psi=robots['state'][r]['2'])
+        robots['rankings'][r], _ = robots_rankings(robots['H'][r], psi=robots['state'][r]['2'])
+
         # todo: robot presents the rankings
         # robots['H'][r], robots['state'][r]['2'] = robot_behavior(1, robots['H'][r], H_person, question_qubits=cq['qq'], psi=robots['state'][r]['1'])
 
@@ -259,3 +309,5 @@ def flow():
     ### The detective ask the person who did it?
     person_buttons = get_from_kivi()
     ### Based on the answer we would know if one changed the ranking after seeing the robots rankings,
+
+flow()

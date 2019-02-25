@@ -1,5 +1,8 @@
 import numpy as np
 from scipy.linalg import expm
+from scipy.optimize import minimize
+from copy import deepcopy
+
 
 def rmse(pred_, real_):
     return np.sqrt(np.square(np.subtract(pred_, real_)).mean())
@@ -306,7 +309,30 @@ def grandH_from_x(x_, qubits = [1, 3]):
 
     return H_
 
+def general_minimize(f, args_, x_0, U = False):
+    min_err = 100.0
+    best_result = None
+    num_of_minimizations = 10
+    if U:
+        num_of_minimizations = 10
+    for i in range(num_of_minimizations): #todo: change back to 100
+        x_0_rand = np.random.randint(2, size=x_0.shape) * 2.0 - 1.0
+        res_temp = minimize(f, x_0_rand, args=args_, method='SLSQP', bounds=None, options={'disp': False})
+        if res_temp.fun < min_err:
+            min_err = res_temp.fun
+            best_result = deepcopy(res_temp)
 
+    return best_result
+
+def fun_to_minimize(h_, real_p_, psi_0, all_h, all_q, all_P, n_qubits=2):
+    # all_h = ['x', h_b, h_ab], [h_a, None, h_ab], [h_a, h_b, None]
+    # all_q = [q1, q2] = [0,3] --> AD
+    # all_P = '0' --> P_q1, '1' --> P_q2, 'C' --> P_q1 * P_q2, 'D' --> P_q1 + P_q2 - P_q1 * P_q2
+
+    full_h = [h_[0] if type(v) is type('x') else v for v in all_h] # replace the None with the minimization parameter
+    p_ = get_general_p(full_h, all_q, all_P, psi_0, n_qubits)
+    err_ = rmse(p_, real_p_)
+    return err_
 
 def get_question_H(psi_0, all_q, p_real):
     person_parameters = {}
