@@ -2,11 +2,12 @@ import numpy as np
 import pandas as pd
 import pickle
 from quantum_calculations import *
-from itertools import permutations, combinations
+from itertools import combinations
+from random import shuffle
 import json
 
-### read the story from json
-stories = json.load(open('story_dict.json'))
+# ### read the story from json
+# stories = json.load(open('story_dict.json'))
 
 
 ### from qubits number to representation in the code
@@ -22,6 +23,22 @@ information = {'0': {'qq': [0, 1], 'qtype': 'ranking'},
 ### initial psi for evereyone
 plus = np.array([1, 0, 0, 1]) / np.sqrt(2)
 psi0 = np.kron(plus, plus).reshape(16,1)
+
+### dummy varibales for checking the code
+stories = ['a', 'b', 'c', 'd']
+
+### hs for testing
+hs1 = {'ha': [.5], 'hb': [.4], 'hab': [.8],
+       'hc': [.2], 'hd': [.1], 'hcd': [.9],
+       'hac': [.5], 'had': [.5], 'hbc': [.5], 'hbd': [.5], 'hcd': [.5]}
+
+hs2 = {'ha': [.2], 'hb': [.3], 'hab': [.9],
+       'hc': [.2], 'hd': [.4], 'hcd': [.7],
+       'hac': [.5], 'had': [.5], 'hbc': [.5], 'hbd': [.5], 'hcd': [.5]}
+
+def robots_answering_order():
+    robots = [1,2]
+    return shuffle(robots)
 
 def intialize_robots_H(rationality, hs = None):
     H = {'ha': [], 'hb': [], 'hab': [],
@@ -56,12 +73,13 @@ def extract_info_from_buttons(person_buttons, question_type):
         else:  # right
             return 2
 
-        person_H = update_H(person_H, robot_H, update='person')
 
 def person_parameters(person_buttons = None, person_state = None, question_qubits = [0,1], question_type = 'ratings'):
     all_q = question_qubits
     person_probs = extract_info_from_buttons(person_buttons, question_type)
+
     ### calculate {h} from person buttons (and psi_after).
+
     H_person, psi_after_question = get_question_H(person_state, all_q, person_probs)
     return H_person, psi_after_question
 
@@ -83,7 +101,7 @@ def update_H(H_robot, H_person, question_qubits, update = 'robot'):
             H_person[h] = H_robot[h]
     return H_robot, hs
 
-def generate_robot_behavior(ps, type = 'ranking'):
+def generate_robot_behavior(which_robot, ps, type = 'ranking'):
     '''
     send to the robot (with ROS) what to do.
     :param ps: probabilities
@@ -92,20 +110,19 @@ def generate_robot_behavior(ps, type = 'ranking'):
     '''
     pass
 
-def robot_behavior(H_robot, H_person, question_qubits = [0,1], psi = psi0):
-    all_q = question_qubits
+def robot_behavior(which_robot, H_robot, H_person, question_qubits = [0,1], psi = psi0):
 
     H_robot, hs = update_H(H_robot, H_person, question_qubits, update = 'robot')
 
     full_h = [H_robot[hs[0]], H_robot[hs[1]], H_robot[hs[2]]]
 
     ### calculate robots probability
-    ps = robot_probs(psi, full_h, all_q, 'conj', n_qubits=4)
+    ps = robot_probs(psi, full_h, question_qubits, 'conj', n_qubits=4)
 
-    total_H = compose_H(full_h, all_q, n_qubits=4)
+    total_H = compose_H(full_h, question_qubits, n_qubits=4)
     psi_final = get_psi(total_H, psi)
 
-    generate_robot_behavior(ps)
+    generate_robot_behavior(which_robot, ps)
 
     return H_robot, psi_final
 
@@ -177,35 +194,30 @@ def flow():
     robot1_state['0'] = psi0
     robot2_state['0'] = psi0
 
-
-    ### hs for testing
-    hs1 = {'ha': [.5], 'hb': [.4], 'hab': [.8],
-         'hc': [.2], 'hd': [.1], 'hcd': [.9],
-         'hac': [.5], 'had': [.5], 'hbc': [.5], 'hbd': [.5], 'hcd': [.5]}
-
-    hs2 = {'ha': [.2], 'hb': [.3], 'hab': [.9],
-         'hc': [.2], 'hd': [.4], 'hcd': [.7],
-         'hac': [.5], 'had': [.5], 'hbc': [.5], 'hbd': [.5], 'hcd': [.5]}
-
     H1 = intialize_robots_H(rationality='rational', hs = hs1) # hs - to create the ir/rationality
     H2 = intialize_robots_H(rationality='irrational', hs = hs2)
 
+    robots = {'H': {1:H1, 2:H2},
+              'state' : {1: robot1_state, 2: robot2_state}}
+
     ### present story 1
-    present_info(story = 0)
+    present_info(stories, 0)
     cq = information['0']
-    # --> ask the person to rate the probabilites
+    # --> ask the person to rate the probabilities
     person_buttons = get_from_kivi()
 
     H_person, person_state['1'] = person_parameters(person_buttons, person_state = person_state['0'],
                                                     question_qubits = cq['qq'], question_type = cq['qtype'])
 
     ### pesent more information
-    present_info(story = 1)
+    present_info(stories, 1)
     cq = information['1']
-    ### generate 1st robot answer
-    H1, robot1_state['1'] = robot_behavior(H1, H_person, question_qubits= cq['qq'], psi=robot1_state['0'])
-    ### generate 2nd robot answer
-    H1, robot2_state['1'] = robot_behavior(H2, H_person, question_qubits= cq['qq'], psi=robot2_state['0'])
+
+    answering_order = robots_answering_order()
+
+    ### generate robots answer
+    for r in answering_order:
+        robots['H'][r], robots['state'][r]['1'] = robot_behavior(1, robots['H'][r], H_person, question_qubits=cq['qq'], psi=robots['state'][r]['0'])
 
     ### Ask the person which robot do you agree with?
     person_buttons = get_from_kivi()
@@ -220,14 +232,14 @@ def flow():
     H_person = update_H(H_person, H_person_, update='person')
 
     ### present new information --> story 3
-    present_info(story = 3)
+    present_info(stories, 3)
     cq = information['3']
     Uq = get_U_question()
     ### propogate the state using U
 
-    H1, robot1_state['2'] = robot_behavior(H1, H_person, question_qubits= cq['qq'], psi=robot1_state['1'])
-    ### generate 2nd robot answer
-    H2, robot2_state['2'] = robot_behavior(H2, H_person, question_qubits= cq['qq'], psi=robot2_state['1'])
+    ### generate robots answer
+    for r in answering_order:
+        robots['H'][r], robots['state'][r]['2'] = robot_behavior(1, robots['H'][r], H_person, question_qubits=cq['qq'], psi=robots['state'][r]['1'])
 
     ### Ask the person which robot do you agree with?
     person_buttons = get_from_kivi()
@@ -238,9 +250,12 @@ def flow():
     person_rankings = extract_info_from_buttons(person_buttons, question_type='ranking')
 
     ### robots gives ranking
-    ### todo: function that based on the robots' states --> calculate probs --> output as ranking.
-    rankings = robots_rankings(H1, psi=robot2_state['2'])
+    for r in answering_order:
+        rankings = robots_rankings(robots['H'][r], psi=robots['state'][r]['2'])
+        # todo: robot presents the rankings
+        # robots['H'][r], robots['state'][r]['2'] = robot_behavior(1, robots['H'][r], H_person, question_qubits=cq['qq'], psi=robots['state'][r]['1'])
+
 
     ### The detective ask the person who did it?
-    ### Based on the answer we would know if one changed the ranking after seeing the robots rankings,
     person_buttons = get_from_kivi()
+    ### Based on the answer we would know if one changed the ranking after seeing the robots rankings,
