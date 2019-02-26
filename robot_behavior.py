@@ -41,12 +41,13 @@ psi0 = np.kron(plus, plus).reshape(16,1)
 stories = ['a', 'b', 'c', 'd'] # add questions: which robot do you agree with?, rank in descending order. etc.
 
 story_dict = {
-  0: 'A diamond shop was robbed. The police came straight away and caught a couple of people (separately) near the scene, but no diamonds were found. The detective assigned to the case is sure, with no doubt, that at least one of the suspects did it. You and the robots need to help the detective figure out who robbed the shop. here are suspects are: Suspect A: Is tall, with a black Louis Vuitton leather jacket and a Rolex watch. Suspect B: Has blonde hair and had a cut above the left eyebrow.',
-  1: 'Suspect C: Tried to run from the scene when the police asked to stop. Suspect D: Is not willing to talk before a lawyer is present.',
-  2: 'Suspect B told the police that she got the cut when from a tree branch when she took her dog for a walk a few hours earlier to the incident. Suspect D is still refusing to talk even when the lawyer arrived.',
-  'rate': 'Rate the probabilities that each of the suspects is guilty.',
-  'rank': 'Rank the suspects in a descending order according to how likely they are guilty',
-  'agree': 'Which robot do you agree with'
+    0: 'A diamond shop was robbed. The police came straight away and caught a couple of people (separately) near the scene, but no diamonds were found. The detective assigned to the case is sure, with no doubt, that at least one of the suspects did it. You and the robots need to help the detective figure out who robbed the shop. here are suspects are: Suspect A: Is tall, with a black Louis Vuitton leather jacket and a Rolex watch. Suspect B: Has blonde hair and had a cut above the left eyebrow.',
+    1: 'Suspect C: Tried to run from the scene when the police asked to stop. Suspect D: Is not willing to talk before a lawyer is present.',
+    2: 'Suspect B told the police that she got the cut when from a tree branch when she took her dog for a walk a few hours earlier to the incident. Suspect D is still refusing to talk even when the lawyer arrived.',
+    'rate': 'Rate the probabilities that each of the suspects is guilty.',
+    'rank': 'Rank the suspects in a descending order according to how likely they are guilty',
+    'agree': 'Which robot do you agree with',
+    'suspect' : 'Who did it?'
         }
 
 ### hs for testing
@@ -148,56 +149,72 @@ def update_H(H_robot, H_person, question_qubits, update = 'robot'):
             H_person[h] = H_robot[h]
     return H_robot, hs
 
-def generate_robot_behavior(robots_publisher, which_robot, ps, question_qubits, qtype = 'rate'):
+def generate_robot_behavior(robots_publisher, which_robot, ps, question_qubits, qtype = 'rate', test = True):
     '''
     send to the robot (with ROS) what to do.
     :param ps: probabilities
     :param type: ranking/ rating
     :return:
     '''
-    ### turn qubits to letters.
-    probs = []
-    for q in question_qubits:
-        probs.append(hq[q])
-    probs.append(hq[0] + '_and_' + hq[1])
+    if not test:
+        if qtype == 'rate':
+            ### turn qubits to letters.
+            probs = []
+            for q in question_qubits:
+                probs.append(hq[q])
+            probs.append(hq[0] + '_and_' + hq[1])
 
-    ### possible intros to answers to choose from. todo: a behavior file for each
-    answer_intro = ['for_my_opinion', 'i_think_that', 'my_opinion_is', 'it_seems_that']
+            ### possible intros to answers to choose from. todo: a behavior file for each
+            answer_intro = ['for_my_opinion', 'i_think_that', 'my_opinion_is', 'it_seems_that']
 
-    ### choose the intro randomly
-    i = np.random.randint(0,len(answer_intro))
-    action = {'action': 'run_behavior', 'parameters': ['irrational/%s' % answer_intro[i], 'wait']}
-    run_robot_behavior(robots_publisher, which_robot, action)
-
-    if qtype == 'rate':
-        for i, p in enumerate(probs):
-            action = {'action': 'run_behavior', 'parameters': ['irrational/%s' % p, 'wait']}
+            ### choose the intro randomly
+            i = np.random.randint(0, len(answer_intro))
+            action = {'action': 'run_behavior', 'parameters': ['irrational/%s' % answer_intro[i], 'wait']}
             run_robot_behavior(robots_publisher, which_robot, action)
 
-            the_action = robot_sound_path + '%d.wav' % int(10 * np.round(ps[i]*10).flatten()[0])
-            nao_message = {"action": 'play_audio_file',
-                           "parameters": [the_action]}
+            for i, p in enumerate(probs):
+                action = {'action': 'run_behavior', 'parameters': ['irrational/suspect_%s' % p, 'wait']}
+                run_robot_behavior(robots_publisher, which_robot, action)
 
-            run_robot_behavior(robots_publisher, which_robot, nao_message)
+                the_action = robot_sound_path + '%d.wav' % int(10 * np.round(ps[i]*10).flatten()[0])
+                nao_message = {"action": 'play_audio_file',
+                               "parameters": [the_action]}
+                run_robot_behavior(robots_publisher, which_robot, nao_message)
+
+        elif qtype == 'rank':
+            ### possible intros to answers to choose from.
+            answer_intro = ['my_ranking_is', 'i_think_the_ranking_is']
+            ### choose the intro randomly
+            i = np.random.randint(0, len(answer_intro))
+            action = {'action': 'run_behavior', 'parameters': ['irrational/%s' % answer_intro[i], 'wait']}
+            run_robot_behavior(robots_publisher, which_robot, action)
+
+            for i, p in enumerate(ps):
+                action = {'action': 'run_behavior', 'parameters': ['irrational/suspect_%s' % p, 'wait']}
+                run_robot_behavior(robots_publisher, which_robot, action)
+
+
+def robot_behavior(robots_publisher, which_robot, H_robot, H_person, question_qubits = [0,1], psi = psi0, qtype = 'rate', robots = None):
+
+    if qtype == 'rate':
+        H_robot, hs = update_H(H_robot, H_person, question_qubits, update = 'robot')
+
+        full_h = [H_robot[hs[0]], H_robot[hs[1]], H_robot[hs[2]]]
+
+        ### calculate robots probability
+        ps = robot_probs(psi, full_h, question_qubits, 'conj', n_qubits=4)
+
+        total_H = compose_H(full_h, question_qubits, n_qubits=4)
+        psi_final = get_psi(total_H, psi)
+
+        generate_robot_behavior(robots_publisher, which_robot, ps, question_qubits, qtype)
+
+        return H_robot, psi_final
     elif qtype == 'rank':
-        pass
-    pass
+        robots['rankings'][which_robot], _ = robots_rankings(robots['H'][which_robot], psi=robots['state'][which_robot]['2'])
+        generate_robot_behavior(robots_publisher, which_robot, robots['rankings'][which_robot], question_qubits, qtype)
+        return robots
 
-def robot_behavior(robots_publisher, which_robot, H_robot, H_person, question_qubits = [0,1], psi = psi0, qtype = 'rate'):
-
-    H_robot, hs = update_H(H_robot, H_person, question_qubits, update = 'robot')
-
-    full_h = [H_robot[hs[0]], H_robot[hs[1]], H_robot[hs[2]]]
-
-    ### calculate robots probability
-    ps = robot_probs(psi, full_h, question_qubits, 'conj', n_qubits=4)
-
-    total_H = compose_H(full_h, question_qubits, n_qubits=4)
-    psi_final = get_psi(total_H, psi)
-
-    generate_robot_behavior(robots_publisher, which_robot, ps, question_qubits, qtype)
-
-    return H_robot, psi_final
 
 
 def robot_probs(psi, full_h, all_q, fallacy, n_qubits = 4):
@@ -232,7 +249,7 @@ def robots_rankings(H, psi):
 
         rankings[q1] = ps[0].flatten()
         rankings[q2] = ps[1].flatten()
-        rankings[q12 + 'c'] = ps[2].flatten()
+        rankings[q1 + '_and_' + q2] = ps[2].flatten()
         # rankings[str(comb[0]) + str(comb[1]) + 'd'] = ps[3]
 
     df_ranks = pd.DataFrame.from_dict(rankings)
@@ -254,13 +271,13 @@ def present_info(story_dict, story = None, suspects = None, test = True):
     else:
         s = story_dict[story]
     print(s)
-    raw_input('press any key continue')
+    # raw_input('press any key continue')
 
 
 def get_from_kivi(test = True, qtype = 'rate'):
     if test:
         if qtype == 'agree':
-            return np.random.randint(0,2)
+            return [np.random.randint(0,2)]
         elif qtype == 'rate':
             return [np.random.randint(1,10),np.random.randint(1,10),np.random.randint(1,10)]
         elif qtype == 'rank':
@@ -290,13 +307,14 @@ def flow():
     robot2_state['0'] = psi0
 
     ### start communication with the robots
-    robots_publisher = intialize_robots_comm(2)
+    # robots_publisher = intialize_robots_comm(2)
+    robots_publisher = []
 
     H1 = intialize_robots_H(rationality='rational', hs = hs1) # hs - to create the ir/rationality
     H2 = intialize_robots_H(rationality='irrational', hs = hs2)
 
     robots = {'H': {1:H1, 2:H2},
-              'state' : {1: {}, 2: {}},
+              'state' : {1: robot1_state, 2: robot2_state},
               'rankings': {1:[], 2:[]}}
 
     ### present story 1
@@ -352,17 +370,19 @@ def flow():
     ### ask the person to rank all the probabilites and the conjunction between them.
     present_info(story_dict, cq['qtype'], cq['qq'])
     person_buttons = get_from_kivi(qtype = cq['qtype'])
-    person_rankings = extract_info_from_buttons(person_buttons, question_type='rank')
+    person_rankings = extract_info_from_buttons(person_buttons, question_type=cq['qtype'])
 
     ### robots gives ranking
     for r in answering_order:
-        robots['rankings'][r], _ = robots_rankings(robots['H'][r], psi=robots['state'][r]['2'])
+        # robots['rankings'][r], _ = robots_rankings(robots['H'][r], psi=robots['state'][r]['2'])
 
         # todo: robot presents the rankings
-        # robots['H'][r], robots['state'][r]['2'] = robot_behavior(1, robots['H'][r], H_person, question_qubits=cq['qq'], psi=robots['state'][r]['1'], qtype = 'rank')
+        robots = robot_behavior(robots_publisher, 1, robots['H'][r],
+                       H_person, question_qubits=cq['qq'], psi=robots['state'][r]['1'], qtype = cq['qtype'], robots = robots)
 
 
     ### The detective ask the person who did it?
+    present_info(story_dict, 'suspect')
     person_buttons = get_from_kivi(qtype = 'suspect')
     ### Based on the answer we would know if one changed the ranking after seeing the robots rankings,
 
