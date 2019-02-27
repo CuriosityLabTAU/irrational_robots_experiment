@@ -10,6 +10,7 @@ import random
 import subprocess
 
 import time
+import naoqi
 
 
 
@@ -36,7 +37,8 @@ import time
 
 
 robot_sound_path = '/home/nao/irrational/sounds/'
-robot_behavior_path = 'facilitator-6ea3b8/'
+# robot_behavior_path = 'facilitator-6ea3b8/'
+robot_behavior_path = 'torr_test_v1-3714cd/'
 
 
 def run_robot_behavior(robots_publisher, which_robot, message):
@@ -65,8 +67,8 @@ for i in range(2):
 
 # how to run an action on the robot
 # action = {"action": "wake_up"}
-action = {'action': 'run_behavior','parameters': ['robot_facilitator-ad2c5c/robotator_behaviors/TU13b', 'wait']}
-# run_robot_behavior(robots_publisher, 0, action)
+action = {'action': 'run_behavior','parameters': [robot_behavior_path+'trial_v1', 'wait']}
+run_robot_behavior(robots_publisher, 0, action)
 
 ## how to play a file
 for r in range(2):
@@ -84,6 +86,9 @@ for r in range(2):
 # linux operations
 # copy content of one folder to another:
 # scp -r /home/curious/PycharmProjects/irrational_robots_experiment/sounds nao@192.168.0.100:/home/nao/irrational
+
+# ./.local/share/PackageManager/apps/irrational
+# naoqi.ALBehavior()
 
 # todo: multiple robots
 

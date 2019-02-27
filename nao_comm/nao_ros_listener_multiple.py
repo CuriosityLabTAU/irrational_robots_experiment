@@ -6,7 +6,8 @@ import sys
 
 
 class NaoListenerNodeMultiple():
-    def __init__(self, nao_ip=['192.168.0.100', '192.168.0.102']):
+    # def __init__(self, nao_ip=['192.168.0.100', '192.168.0.102']):
+    def __init__(self, nao_ip=['192.168.0.100']):
         # input is an array of ip's (in strings)
         self.nao_alproxy = []
         self.publisher = []
