@@ -9,6 +9,8 @@ from quantum_calculations import *
 ### iterations imports
 from itertools import combinations
 from random import shuffle
+import operator
+
 import json
 
 ### imports for the robot
@@ -21,7 +23,8 @@ from std_msgs.msg import String
 ### path to sound files on the robot
 robot_sound_path = '/home/nao/naoqi/sounds/HCI/'
 ### path to behaviors on the robot
-robot_behavior_path = 'facilitator-6ea3b8/'
+# robot_behavior_path = 'facilitator-6ea3b8/'
+robot_behavior_path = 'torr_test_v1-3714cd/'
 
 ### from qubits number to representation in the code
 hq = {0:'a', 1:'b', 2:'c', 3:'d'}
@@ -66,7 +69,7 @@ def robots_answering_order():
 
 
 def run_robot_behavior(robots_publisher, which_robot, message):
-    robots_publisher[which_robot].publish(json.dumps(message))
+    robots_publisher[which_robot-1].publish(json.dumps(message))
 
 def callback_nao_state(data):
     if 'register tablet' not in data.data and 'sound_tracker' not in data.data:
@@ -159,38 +162,41 @@ def generate_robot_behavior(robots_publisher, which_robot, ps, question_qubits, 
     if not test:
         if qtype == 'rate':
             ### turn qubits to letters.
-            probs = []
-            for q in question_qubits:
-                probs.append(hq[q])
-            probs.append(hq[0] + '_and_' + hq[1])
+            probs = {}
+            for i, q in enumerate(question_qubits):
+                probs[hq[q]] = int(10 * np.round(ps[i]*10).flatten()[0])
+            probs[hq[0] + '_and_' + hq[1]] = int(10 * np.round(ps[-1]*10).flatten()[0])
+
+            ### arange the probs by their value.
+            probs = sorted(probs.items(), key=operator.itemgetter(0))
 
             ### possible intros to answers to choose from. todo: a behavior file for each
             answer_intro = ['for_my_opinion', 'i_think_that', 'my_opinion_is', 'it_seems_that']
 
             ### choose the intro randomly
             i = np.random.randint(0, len(answer_intro))
-            action = {'action': 'run_behavior', 'parameters': ['irrational/%s' % answer_intro[i], 'wait']}
+            action = {'action': 'run_behavior', 'parameters': [robot_behavior_path + '%s' % answer_intro[i], 'wait']}
             run_robot_behavior(robots_publisher, which_robot, action)
 
-            for i, p in enumerate(probs):
-                action = {'action': 'run_behavior', 'parameters': ['irrational/suspect_%s' % p, 'wait']}
+
+
+            for p,val in probs:
+                action = {'action': 'run_behavior', 'parameters': [robot_behavior_path + 'suspect_%s' % p, 'wait']}
                 run_robot_behavior(robots_publisher, which_robot, action)
 
-                the_action = robot_sound_path + '%d.wav' % int(10 * np.round(ps[i]*10).flatten()[0])
-                nao_message = {"action": 'play_audio_file',
-                               "parameters": [the_action]}
-                run_robot_behavior(robots_publisher, which_robot, nao_message)
+                action = {'action': 'run_behavior', 'parameters': [robot_behavior_path + 'prob%d' % val, 'wait']}
+                run_robot_behavior(robots_publisher, which_robot, action)
 
         elif qtype == 'rank':
             ### possible intros to answers to choose from.
             answer_intro = ['my_ranking_is', 'i_think_the_ranking_is']
             ### choose the intro randomly
             i = np.random.randint(0, len(answer_intro))
-            action = {'action': 'run_behavior', 'parameters': ['irrational/%s' % answer_intro[i], 'wait']}
+            action = {'action': 'run_behavior', 'parameters': [robot_behavior_path + '%s' % answer_intro[i], 'wait']}
             run_robot_behavior(robots_publisher, which_robot, action)
 
             for i, p in enumerate(ps):
-                action = {'action': 'run_behavior', 'parameters': ['irrational/suspect_%s' % p, 'wait']}
+                action = {'action': 'run_behavior', 'parameters': [robot_behavior_path + 'suspect_%s' % p, 'wait']}
                 run_robot_behavior(robots_publisher, which_robot, action)
 
 
@@ -207,12 +213,12 @@ def robot_behavior(robots_publisher, which_robot, H_robot, H_person, question_qu
         total_H = compose_H(full_h, question_qubits, n_qubits=4)
         psi_final = get_psi(total_H, psi)
 
-        generate_robot_behavior(robots_publisher, which_robot, ps, question_qubits, qtype)
+        generate_robot_behavior(robots_publisher, which_robot, ps, question_qubits, qtype, test = False)
 
         return H_robot, psi_final
     elif qtype == 'rank':
         robots['rankings'][which_robot], _ = robots_rankings(robots['H'][which_robot], psi=robots['state'][which_robot]['2'])
-        generate_robot_behavior(robots_publisher, which_robot, robots['rankings'][which_robot], question_qubits, qtype)
+        generate_robot_behavior(robots_publisher, which_robot, robots['rankings'][which_robot], question_qubits, qtype, test = False)
         return robots
 
 
@@ -308,7 +314,12 @@ def flow():
 
     ### start communication with the robots
     # robots_publisher = intialize_robots_comm(2)
+
     robots_publisher = []
+    for i in range(2):
+        robots_publisher.append(rospy.Publisher('to_nao_%d' % i, String, queue_size=10))
+        rospy.init_node('manager_node')  # init a listener:
+        rospy.Subscriber('nao_state_%d' % i, String, callback_nao_state)
 
     H1 = intialize_robots_H(rationality='rational', hs = hs1) # hs - to create the ir/rationality
     H2 = intialize_robots_H(rationality='irrational', hs = hs2)
@@ -332,10 +343,11 @@ def flow():
     cq = information['1']
 
     answering_order = robots_answering_order()
-
+    print(answering_order)
     ### generate robots answer
     for r in answering_order:
-        robots['H'][r], robots['state'][r]['1'] = robot_behavior(robots_publisher,1, robots['H'][r], H_person, question_qubits=cq['qq'], psi=robots['state'][r]['0'])
+        temp = raw_input('1st response of robot %d continue?\n' % r)
+        robots['H'][r], robots['state'][r]['1'] = robot_behavior(robots_publisher,r, robots['H'][r], H_person, question_qubits=cq['qq'], psi=robots['state'][r]['0'])
 
 
     ### Ask the person which robot do you agree with?
@@ -355,12 +367,17 @@ def flow():
     ### present new information --> story 3
     present_info(stories, 3)
     cq = information['3']
-    Uq = get_U_question()
-    ### propogate the state using U
 
+    ### propogate the state using U
+    # start with I - identity.
+    Uq = get_U_question()
+    robots['state'][r]['1'] = np.dot(Uq, robots['state'][r]['1'])
+
+    answering_order = robots_answering_order()
     ### generate robots answer
     for r in answering_order:
-        robots['H'][r], robots['state'][r]['2'] = robot_behavior(robots_publisher, 1, robots['H'][r], H_person, question_qubits=cq['qq'], psi=robots['state'][r]['1'])
+        temp = raw_input('2nd response of %d robot continue?\n' % r)
+        robots['H'][r], robots['state'][r]['2'] = robot_behavior(robots_publisher, r, robots['H'][r], H_person, question_qubits=cq['qq'], psi=robots['state'][r]['1'])
 
     ### Ask the person which robot do you agree with?
     present_info(story_dict, 'agree')
@@ -372,12 +389,13 @@ def flow():
     person_buttons = get_from_kivi(qtype = cq['qtype'])
     person_rankings = extract_info_from_buttons(person_buttons, question_type=cq['qtype'])
 
+    answering_order = robots_answering_order()
     ### robots gives ranking
     for r in answering_order:
         # robots['rankings'][r], _ = robots_rankings(robots['H'][r], psi=robots['state'][r]['2'])
-
         # todo: robot presents the rankings
-        robots = robot_behavior(robots_publisher, 1, robots['H'][r],
+        temp = raw_input('robots ranking?\n')
+        robots = robot_behavior(robots_publisher, r, robots['H'][r],
                        H_person, question_qubits=cq['qq'], psi=robots['state'][r]['1'], qtype = cq['qtype'], robots = robots)
 
 
@@ -387,3 +405,8 @@ def flow():
     ### Based on the answer we would know if one changed the ranking after seeing the robots rankings,
 
 flow()
+
+# action = {"action": "wake_up"}
+# run_robot_behavior(robots_publisher, 0, action)
+# action = {"action": "rest"}
+# run_robot_behavior(robots_publisher, 0, action)

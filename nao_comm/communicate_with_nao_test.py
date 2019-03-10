@@ -67,18 +67,19 @@ for i in range(2):
 
 # how to run an action on the robot
 # action = {"action": "wake_up"}
-action = {'action': 'run_behavior','parameters': [robot_behavior_path+'trial_v1', 'wait']}
+action = {'action': 'run_behavior','parameters': [robot_behavior_path+'suspect_a', 'wait']}
 run_robot_behavior(robots_publisher, 0, action)
 
 ## how to play a file
-for r in range(2):
-    for percent in [40, 60, 80]:
-        the_action = robot_sound_path + '%d.wav' % percent
-        nao_message = {"action": 'play_audio_file',
-                       "parameters": [the_action]}
-        run_robot_behavior(robots_publisher, r, nao_message)
-        time.sleep(2)
-    time.sleep(3)
+#
+# for r in range(2):
+#     for percent in [40, 60, 80]:
+#         the_action = robot_sound_path + '%d.wav' % percent
+#         nao_message = {"action": 'play_audio_file',
+#                        "parameters": [the_action]}
+#         run_robot_behavior(robots_publisher, r, nao_message)
+#         time.sleep(2)
+#     time.sleep(3)
 
 ### browse/copy files to nao through the terminal
 # ssh nao@192.168.0.100
