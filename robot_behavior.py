@@ -321,6 +321,9 @@ def flow():
         rospy.init_node('manager_node')  # init a listener:
         rospy.Subscriber('nao_state_%d' % i, String, callback_nao_state)
 
+        action = {"action": "wake_up"}
+        run_robot_behavior(robots_publisher, i + 1, action)
+
     H1 = intialize_robots_H(rationality='rational', hs = hs1) # hs - to create the ir/rationality
     H2 = intialize_robots_H(rationality='irrational', hs = hs2)
 
@@ -404,9 +407,10 @@ def flow():
     person_buttons = get_from_kivi(qtype = 'suspect')
     ### Based on the answer we would know if one changed the ranking after seeing the robots rankings,
 
+    for r in range(2):
+        action = {"action": "rest"}
+        run_robot_behavior(robots_publisher, r + 1, action)
+
 flow()
 
-# action = {"action": "wake_up"}
-# run_robot_behavior(robots_publisher, 0, action)
-# action = {"action": "rest"}
-# run_robot_behavior(robots_publisher, 0, action)
+
