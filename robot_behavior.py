@@ -2,6 +2,8 @@
 import numpy as np
 import pandas as pd
 import pickle
+import subprocess
+import ast # str2dict
 
 ### my calculations todo: need to update once the model is finished
 from quantum_calculations import *
@@ -16,6 +18,8 @@ import json
 ### imports for the robot
 import rospy
 from std_msgs.msg import String
+
+from time import sleep
 
 # ### read the story from json
 # stories = json.load(open('story_dict.json'))
@@ -106,28 +110,27 @@ def intialize_robots_H(rationality, hs = None):
     return H
 
 
-def extract_info_from_buttons(person_buttons, question_type):
+def extract_info_from_buttons(person_buttons, question_type, question_qubits = [0,1]):
     if question_type == 'rate':
         person_probs = {}
-        person_probs['A']   = person_buttons[0]
-        person_probs['B']   = person_buttons[1]
-        person_probs['A_B'] = person_buttons[2]
+        person_probs['A']   = person_buttons[hq[question_qubits[0]]]
+        person_probs['B']   = person_buttons[hq[question_qubits[1]]]
+        person_probs['A_B'] = person_buttons[hq[question_qubits[0]] + '_and_' + hq[question_qubits[1]]]
         return person_probs
     elif question_type == 'rank':
-        person_rankings = person_buttons.copy()
-        for i, button in enumerate(person_buttons):
-            person_rankings[i] = person_buttons[i]
-        return person_rankings
+        # person_rankings = person_buttons.copy()
+        # for i, button in enumerate(person_buttons):
+        #     person_rankings[i] = person_buttons[i]
+        return person_buttons
     elif question_type == 'agree':
-        if person_buttons[0] == 1:  # left
-            return 1
-        else:  # right
-            return 2
+        return person_buttons[0]
+    elif question_type == 'end_app':
+        return question_type
 
 
 def person_parameters(person_buttons = None, person_state = None, question_qubits = [0,1], question_type = 'ratings'):
     all_q = question_qubits
-    person_probs = extract_info_from_buttons(person_buttons, question_type)
+    person_probs = extract_info_from_buttons(person_buttons, question_type, question_qubits)
 
     ### calculate {h} from person buttons (and psi_after).
 
@@ -280,7 +283,7 @@ def present_info(story_dict, story = None, suspects = None, test = True):
     # raw_input('press any key continue')
 
 
-def get_from_kivi(test = True, qtype = 'rate'):
+def get_from_kivi(app_thread = None, test = True, qtype = 'rate'):
     if test:
         if qtype == 'agree':
             return [np.random.randint(0,2)]
@@ -294,11 +297,12 @@ def get_from_kivi(test = True, qtype = 'rate'):
             return 'suspect' + hq[np.random.randint(0,4)] + 'did it!'
     else:
         ### get the real data from kivi
-        pass
+        output = app_thread.stdout.readline()
+        return output
 
 
 def get_U_question():
-    np.eye(16,16)
+    return np.eye(16,16)
 
 def flow():
     ### initialize robot quantum state according to chosen rationality.
@@ -331,12 +335,17 @@ def flow():
               'state' : {1: robot1_state, 2: robot2_state},
               'rankings': {1:[], 2:[]}}
 
+
+    ### INITIALIZE APP ###
+    app_thread = subprocess.Popen(["python", "desktop_app/app_v1.py"], stdout=subprocess.PIPE)
+
     ### present story 1
     present_info(story_dict, 0)
     cq = information['0']
     present_info(story_dict, cq['qtype'], cq['qq'])
     # --> ask the person to rate the probabilities
-    person_buttons = get_from_kivi(qtype = cq['qtype'])
+    person_buttons = get_from_kivi(app_thread, test = False, qtype = cq['qtype'])
+    person_buttons = ast.literal_eval(person_buttons)
 
     H_person, person_state['1'] = person_parameters(person_buttons, person_state = person_state['0'],
                                                     question_qubits = cq['qq'], question_type = cq['qtype'])
@@ -348,20 +357,24 @@ def flow():
     answering_order = robots_answering_order()
     print(answering_order)
     ### generate robots answer
-    for r in answering_order:
-        temp = raw_input('1st response of robot %d continue?\n' % r)
-        robots['H'][r], robots['state'][r]['1'] = robot_behavior(robots_publisher,r, robots['H'][r], H_person, question_qubits=cq['qq'], psi=robots['state'][r]['0'])
 
+    sleep(3)
+
+    for r in answering_order:
+        # temp = raw_input('1st response of robot %d continue?\n' % r)
+        robots['H'][r], robots['state'][r]['1'] = robot_behavior(robots_publisher,r, robots['H'][r], H_person, question_qubits=cq['qq'], psi=robots['state'][r]['0'])
+        sleep(27)
 
     ### Ask the person which robot do you agree with?
     present_info(story_dict, 'agree')
-    person_buttons = get_from_kivi(qtype ='agree')
+    person_buttons = get_from_kivi(app_thread, test = False, qtype = cq['qtype'])
     chosen_robot = extract_info_from_buttons(person_buttons, question_type = 'agree')
 
     ### ask the person to give ratings to asked qubits
     cq = information['2']
     present_info(story_dict, cq['qtype'], cq['qq'])
-    person_buttons = get_from_kivi(qtype = cq['qtype'])
+    person_buttons = get_from_kivi(app_thread, test = False, qtype = cq['qtype'])
+    person_buttons = ast.literal_eval(person_buttons)
     H_person_, person_state['2'] = person_parameters(person_buttons, person_state=person_state['0'],
                                                      question_qubits=cq['qq'], question_type=cq['qtype'])
     ### update current H of the person
@@ -376,36 +389,43 @@ def flow():
     Uq = get_U_question()
     robots['state'][r]['1'] = np.dot(Uq, robots['state'][r]['1'])
 
+    sleep(3)
     answering_order = robots_answering_order()
     ### generate robots answer
     for r in answering_order:
-        temp = raw_input('2nd response of %d robot continue?\n' % r)
         robots['H'][r], robots['state'][r]['2'] = robot_behavior(robots_publisher, r, robots['H'][r], H_person, question_qubits=cq['qq'], psi=robots['state'][r]['1'])
+        sleep(27)
 
     ### Ask the person which robot do you agree with?
     present_info(story_dict, 'agree')
-    person_buttons = get_from_kivi(qtype = 'agree')
+    person_buttons = get_from_kivi(app_thread, test=False, qtype=cq['qtype'])
     chosen_robot = extract_info_from_buttons(person_buttons, question_type='agree')
 
     ### ask the person to rank all the probabilites and the conjunction between them.
     present_info(story_dict, cq['qtype'], cq['qq'])
-    person_buttons = get_from_kivi(qtype = cq['qtype'])
+    person_buttons = get_from_kivi(app_thread, test=False, qtype=cq['qtype'])
     person_rankings = extract_info_from_buttons(person_buttons, question_type=cq['qtype'])
 
     answering_order = robots_answering_order()
     ### robots gives ranking
     for r in answering_order:
-        # robots['rankings'][r], _ = robots_rankings(robots['H'][r], psi=robots['state'][r]['2'])
-        # todo: robot presents the rankings
-        temp = raw_input('robots ranking?\n')
         robots = robot_behavior(robots_publisher, r, robots['H'][r],
                        H_person, question_qubits=cq['qq'], psi=robots['state'][r]['1'], qtype = cq['qtype'], robots = robots)
+        sleep(52)
 
 
     ### The detective ask the person who did it?
     present_info(story_dict, 'suspect')
-    person_buttons = get_from_kivi(qtype = 'suspect')
-    ### Based on the answer we would know if one changed the ranking after seeing the robots rankings,
+    person_buttons = get_from_kivi(app_thread, test=False, qtype=cq['qtype'])
+    who_did_it = extract_info_from_buttons(person_buttons, question_type=cq['qtype'])    ### Based on the answer we would know if one changed the ranking after seeing the robots rankings,
+
+    ### which robot is the detective
+    person_buttons = get_from_kivi(app_thread, test=False, qtype='agree')
+    robot_detective = extract_info_from_buttons(person_buttons, question_type='agree')
+
+    ### app closed
+    person_buttons = get_from_kivi(app_thread, test=False, qtype=cq['qtype'])
+    app_closed = extract_info_from_buttons(person_buttons, question_type='end_app')
 
     for r in range(2):
         action = {"action": "rest"}
