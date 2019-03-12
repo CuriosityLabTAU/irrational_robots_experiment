@@ -423,7 +423,7 @@ def flow():
     person_buttons = get_from_kivi(app_thread, test=False, qtype='agree')
     robot_detective = extract_info_from_buttons(person_buttons, question_type='agree')
 
-    ### app closed
+    #### app closed
     person_buttons = get_from_kivi(app_thread, test=False, qtype=cq['qtype'])
     app_closed = extract_info_from_buttons(person_buttons, question_type='end_app')
 
