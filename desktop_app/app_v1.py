@@ -3,6 +3,7 @@
 
 # import tkinter as tk # python 3
 import Tkinter as tk
+from playsound import playsound
 import numpy as np
 
 from PIL import Image, ImageTk
