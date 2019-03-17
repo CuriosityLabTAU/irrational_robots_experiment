@@ -26,6 +26,10 @@ from datetime import datetime
 # ### read the story from json
 # stories = json.load(open('story_dict.json'))
 
+
+### num of robots connected
+num_robots = 2
+
 rating_times = 1#27
 ranking_times = 1#52
 
@@ -34,6 +38,10 @@ robot_sound_path = '/home/nao/naoqi/sounds/HCI/'
 ### path to behaviors on the robot
 # robot_behavior_path = 'facilitator-6ea3b8/'
 robot_behavior_path = 'torr_test_v1-3714cd/'
+
+
+### global robot flow parameters
+robot_end_signal = {}
 
 ### from qubits number to representation in the code
 hq = {0:'a', 1:'b', 2:'c', 3:'d'}
@@ -92,13 +100,20 @@ def log_entery(**kwargs):
 
 
 def robots_answering_order():
-    order = [1,2]
+    order = [x+1 for x in range(num_robots)]
     shuffle(order)
     return order
 
 
 def run_robot_behavior(robots_publisher, which_robot, message):
+    if 'parameters' in message:
+        signal = message['parameters'][0]
+        robot_end_signal[signal] = False
     robots_publisher[which_robot-1].publish(json.dumps(message))
+    if 'parameters' in message:
+        while not robot_end_signal[signal]:
+            pass
+
 
 def callback_nao_state(data):
     if 'register tablet' not in data.data and 'sound_tracker' not in data.data:
@@ -107,18 +122,19 @@ def callback_nao_state(data):
 
         try:
             signal = json.loads(data.data)['parameters'][0]
-            # robot_end_signal[signal] = True
+            robot_end_signal[signal] = True
         except:
             pass
 
-def intialize_robots_comm(nrobots):
+def intialize_robots_comm():
     ### intiliaze the communication with the robots
     robots_publisher = []
-    for i in range(nrobots):
+    for i in range(num_robots):
         robots_publisher.append(rospy.Publisher('to_nao_%d' % i, String, queue_size=10))
         rospy.init_node('manager_node')  # init a listener:
         rospy.Subscriber('nao_state_%d' % i, String, callback_nao_state)
     return robots_publisher
+
 
 def intialize_robots_H(rationality, hs = None):
     H = {'h_a': [], 'h_b': [], 'h_ab': [],
@@ -273,6 +289,7 @@ def robot_probs(psi, full_h, all_q, fallacy, n_qubits = 4):
 
     return ps
 
+
 def robots_rankings(H, psi):
     combs = combinations([0, 1, 2, 3], 2)
     rankings = {}
@@ -297,6 +314,7 @@ def robots_rankings(H, psi):
     probs_rankings = list(df_ranks.index)
 
     return probs_rankings, df_ranks
+
 
 def present_info(story_dict, story = None, suspects = None, test = True):
     '''
@@ -353,10 +371,11 @@ def flow():
     # robots_publisher = intialize_robots_comm(2)
 
     robots_publisher = []
-    for i in range(2):
+    for i in range(num_robots):
         robots_publisher.append(rospy.Publisher('to_nao_%d' % i, String, queue_size=10))
         rospy.init_node('manager_node')  # init a listener:
         rospy.Subscriber('nao_state_%d' % i, String, callback_nao_state)
+
 
         action = {"action": "wake_up"}
         run_robot_behavior(robots_publisher, i + 1, action)
@@ -409,7 +428,7 @@ def flow():
     for r in answering_order:
         # temp = raw_input('1st response of robot %d continue?\n' % r)
         robots['H'][r], robots['state'][r]['1'] = robot_behavior(robots_publisher,r, robots['H'][r], person['H'], question_qubits=cq['qq'], psi=robots['state'][r]['0'])
-        sleep(rating_times)
+        # sleep(rating_times)
 
     log_entery(**{'state':'robots_states' + q, 'val':robots})
 
