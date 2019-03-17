@@ -72,20 +72,24 @@ hs2 = {'h_a': [.2], 'h_b': [.3], 'h_ab': [.9],
        'h_ac': [.5], 'h_ad': [.5], 'h_bc': [.5], 'h_bd': [.5], 'h_cd': [.5]}
 
 ### intialize global logger
-my_logger = {}
+my_logger = pd.DataFrame([])
 
 
-def log_entery(my_logger, **kwargs):
+def log_entery(**kwargs):
     ### save one line in the logger
-
+    global my_logger
+    # d = pd.DataFrame.from_dict({'time':[], 'state':[], 'val':[]})
+    d = {}
     ### current time
-    ct = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    # ct = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    a = pd.to_datetime('now')
+    # d['time'] = pd.to_datetime(a, format='%d/%b/%Y:%H:%M:%S +0000').strftime('%Y%m%d %H:%M:%S')
+    d['time'] = [pd.to_datetime('now')]
+    d['state'] = [kwargs['state']]
+    d['val'] = [str(kwargs['val'])]
 
-    ### entry according to kwargs
-    my_logger[ct] = {}
-    for key, value in kwargs.iteritems():
-        my_logger[ct][key] = value
-    return my_logger
+    my_logger = my_logger.append(pd.DataFrame.from_dict(d))
+
 
 def robots_answering_order():
     order = [1,2]
@@ -183,7 +187,7 @@ def generate_robot_behavior(robots_publisher, which_robot, ps, question_qubits, 
     :param type: ranking/ rating
     :return:
     '''
-    global my_logger
+
     if not test:
         if qtype == 'rate':
             ### turn qubits to letters.
@@ -203,7 +207,8 @@ def generate_robot_behavior(robots_publisher, which_robot, ps, question_qubits, 
             action = {'action': 'run_behavior', 'parameters': [robot_behavior_path + '%s' % answer_intro[i], 'wait']}
             run_robot_behavior(robots_publisher, which_robot, action)
 
-            my_logger = log_entery(my_logger, **{'robot%s' % which_robot: {'intro' : answer_intro[i],'probs' : probs}})
+            log_entery(**{'state':'robot%s' % which_robot,
+                                                 'val':{'intro' : answer_intro[i],'probs' : probs}})
 
             for p,val in probs:
                 action = {'action': 'run_behavior', 'parameters': [robot_behavior_path + 'suspect_%s' % p, 'wait']}
@@ -220,7 +225,8 @@ def generate_robot_behavior(robots_publisher, which_robot, ps, question_qubits, 
             action = {'action': 'run_behavior', 'parameters': [robot_behavior_path + '%s' % answer_intro[i], 'wait']}
             run_robot_behavior(robots_publisher, which_robot, action)
 
-            my_logger = log_entery(my_logger, **{'robot%s' % which_robot: {'intro' :answer_intro[i],'rankings' :ps}})
+            log_entery(**{'state':'robot%s' % which_robot,
+                                                 'val': {'intro' :answer_intro[i],'rankings' :ps}})
 
             for i, p in enumerate(ps):
                 action = {'action': 'run_behavior', 'parameters': [robot_behavior_path + 'suspect_%s' % p, 'wait']}
@@ -333,8 +339,7 @@ def flow():
     ### initialize robot quantum state according to chosen rationality.
     ### H its a dictionary (array) of all hamiltonians
     global my_logger
-
-    my_logger = log_entery(my_logger, **{'event':'experiment start'})
+    log_entery(**{'state': 'event','val': 'experiment start'})
 
     person_state = {}
     robot1_state = {}
@@ -366,34 +371,34 @@ def flow():
     person = {'H':[],
               'state':person_state}
 
-    my_logger = log_entery(my_logger, **{'event': 'robot initialized'})
+    log_entery(**{'state':'event','val':'robot initialized'})
 
     ### INITIALIZE APP ###
     app_thread = subprocess.Popen(["python", "desktop_app/app_v1.py"], stdout=subprocess.PIPE)
 
-    my_logger = log_entery(my_logger, **{'event':'experiment start'})
+    log_entery(**{'state':'event','val':'experiment start'})
 
     ### present story 1
     present_info(story_dict, 0)
     q = '0'
     cq = information[q]
-    my_logger = log_entery(my_logger, **{'story'+q:cq})
+    log_entery(**{'state':'story'+q,'val':cq})
 
     present_info(story_dict, cq['qtype'], cq['qq'])
     # --> ask the person to rate the probabilities
     person_buttons = get_from_kivi(app_thread, test = False, qtype = cq['qtype'])
     person_buttons = ast.literal_eval(person_buttons)
-    my_logger = log_entery(my_logger, **{'person_input' + q: person_buttons})
+    log_entery(**{'state':'person_input' + q, 'val': person_buttons})
 
     person['H'], person['state']['1'] = person_parameters(person_buttons, person_state = person['state']['0'],
                                                     question_qubits = cq['qq'], question_type = cq['qtype'])
-    my_logger = log_entery(my_logger, **{'person_state' + q: person})
+    log_entery(**{'state':'person_state' + q, 'val':person})
 
     ### pesent more information
     present_info(story_dict, 1)
     q = '1'
     cq = information[q]
-    my_logger = log_entery(my_logger, **{'story'+q:cq})
+    log_entery(**{'state':'story'+q, 'val':cq})
 
     answering_order = robots_answering_order()
     print(answering_order)
@@ -406,41 +411,42 @@ def flow():
         robots['H'][r], robots['state'][r]['1'] = robot_behavior(robots_publisher,r, robots['H'][r], person['H'], question_qubits=cq['qq'], psi=robots['state'][r]['0'])
         sleep(rating_times)
 
-    my_logger = log_entery(my_logger, **{'robots_states' + q: robots})
+    log_entery(**{'state':'robots_states' + q, 'val':robots})
 
     ### Ask the person which robot do you agree with?
     present_info(story_dict, 'agree')
     person_buttons = get_from_kivi(app_thread, test = False, qtype = cq['qtype'])
     chosen_robot = extract_info_from_buttons(person_buttons, question_type = 'agree')
-    my_logger = log_entery(my_logger, **{'person_agree' + q: chosen_robot})
+    log_entery(**{'state':'person_agree' + q, 'val':chosen_robot})
 
     ### ask the person to give ratings to asked qubits
     q = '2'
     cq = information[q]
-    my_logger = log_entery(my_logger, **{'story'+q:cq})
+    log_entery(**{'state':'story'+q, 'val':cq})
 
     present_info(story_dict, cq['qtype'], cq['qq'])
     person_buttons = get_from_kivi(app_thread, test = False, qtype = cq['qtype'])
     person_buttons = ast.literal_eval(person_buttons)
-    my_logger = log_entery(my_logger, **{'person_input'+q:person_buttons})
+    log_entery(**{'state':'person_input'+q,
+                                         'val':person_buttons})
 
     H_person_, person['state']['2'] = person_parameters(person_buttons, person_state=person['state']['0'],
                                                      question_qubits=cq['qq'], question_type=cq['qtype'])
     ### update current H of the person
     person['H'], _ = update_H(person['H'], H_person_, cq['qq'], update='person')
 
-    my_logger = log_entery(my_logger, **{'person_state' + q: person})
+    log_entery(**{'state':'person_state' + q, 'val': person})
 
     ### present new information --> story 3
     present_info(stories, 3)
     q = '3'
     cq = information[q]
-    my_logger = log_entery(my_logger, **{'story'+q:cq})
+    log_entery(**{'state':'story'+q, 'val':cq})
 
     ### propogate the state using U
     # start with I - identity.
     Uq = get_U_question()
-    my_logger = log_entery(my_logger, **{'U_matrix'+q:Uq})
+    log_entery(**{'state':'U_matrix'+q, 'val':Uq})
 
     sleep(3)
     answering_order = robots_answering_order()
@@ -449,20 +455,20 @@ def flow():
         robots['state'][r]['1'] = np.dot(Uq, robots['state'][r]['1'])
         robots['H'][r], robots['state'][r]['2'] = robot_behavior(robots_publisher, r, robots['H'][r], person['H'], question_qubits=cq['qq'], psi=robots['state'][r]['1'])
         sleep(rating_times)
-    my_logger = log_entery(my_logger, **{'robots_states' + q: robots})
+    log_entery(**{'state':'robots_states' + q, 'val': robots})
 
 
     ### Ask the person which robot do you agree with?
     present_info(story_dict, 'agree')
     person_buttons = get_from_kivi(app_thread, test=False, qtype=cq['qtype'])
     chosen_robot = extract_info_from_buttons(person_buttons, question_type='agree')
-    my_logger = log_entery(my_logger, **{'person_agree' + q: chosen_robot})
+    log_entery(**{'state':'person_agree' + q, 'val': chosen_robot})
 
     ### ask the person to rank all the probabilites and the conjunction between them.
     present_info(story_dict, cq['qtype'], cq['qq'])
     person_buttons = get_from_kivi(app_thread, test=False, qtype=cq['qtype'])
     person_rankings = extract_info_from_buttons(person_buttons, question_type=cq['qtype'])
-    my_logger = log_entery(my_logger, **{'person_rankings' + q: person_rankings})
+    log_entery(**{'state':'person_rankings' + q, 'val': person_rankings})
 
     answering_order = robots_answering_order()
     ### robots gives ranking
@@ -470,32 +476,36 @@ def flow():
         robots = robot_behavior(robots_publisher, r, robots['H'][r],
                        person['H'], question_qubits=cq['qq'], psi=robots['state'][r]['1'], qtype = cq['qtype'], robots = robots)
         sleep(ranking_times)
-    my_logger = log_entery(my_logger, **{'robots_states' + q + '_ranks': robots})
+    log_entery(**{'state':'robots_states' + q + '_ranks', 'val': robots})
 
     ### The detective ask the person who did it?
     present_info(story_dict, 'suspect')
     person_buttons = get_from_kivi(app_thread, test=False, qtype=cq['qtype'])
     who_did_it = extract_info_from_buttons(person_buttons, question_type=cq['qtype'])    ### Based on the answer we would know if one changed the ranking after seeing the robots rankings,
-    my_logger = log_entery(my_logger, **{'who_did_it': who_did_it})
+    log_entery(**{'state':'who_did_it', 'val': who_did_it})
 
     ### which robot is the detective
     person_buttons = get_from_kivi(app_thread, test=False, qtype='agree')
     robot_detective = extract_info_from_buttons(person_buttons, question_type='agree')
-    my_logger = log_entery(my_logger, **{'detective_robot': robot_detective})
+    log_entery(**{'state':'detective_robot', 'val': robot_detective})
 
     #### app closed
     person_buttons = get_from_kivi(app_thread, test=False, qtype=cq['qtype'])
     app_closed = extract_info_from_buttons(person_buttons, question_type='end_app')
-    my_logger = log_entery(my_logger, **{'event':'experiment ended'})
+    log_entery(**{'state':'event', 'val':'experiment ended'})
 
     # j = json.dumps(my_logger)
     # f = open("dict.json", "w")
     # f.write(j)
     # f.close()
 
-    fname2save = 'my_logger.pkl'
-    pickle.dump(my_logger, open(fname2save, 'wb'))
-    print('logger saved')
+    # fname2save = 'my_logger.pkl'
+    # pickle.dump(open(fname2save, 'wb'))
+    # print('logger saved')
+    #
+
+    my_logger = my_logger[['time','state', 'val']]
+    my_logger.to_csv('my_logger.csv')
 
     for r in range(2):
         action = {"action": "rest"}

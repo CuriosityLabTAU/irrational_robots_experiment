@@ -83,7 +83,7 @@ def agree_with(self1, controller, page, n = 2):
     photo = ImageTk.PhotoImage(image)
     clr = '#%02x%02x%02x' % (255, 80, 80)
     red_button = tk.Button(self1, image=photo, bg = clr,
-                           command=lambda: transition(['red'], controller, page))
+                           command=lambda: transition('red', controller, page))
     red_button.image = photo
     red_button.grid(row=n + 2, column=1, pady = 30)
 
@@ -91,7 +91,7 @@ def agree_with(self1, controller, page, n = 2):
     photo = ImageTk.PhotoImage(image)
     clr = '#%02x%02x%02x' % (47, 85, 151)
     blue_button = tk.Button(self1, image=photo, bg = clr,
-                            command=lambda: transition(['blue'], controller, page))
+                            command=lambda: transition('blue', controller, page))
     blue_button.image = photo
     blue_button.grid(row=n + 2, column=8, pady = 30)
 
