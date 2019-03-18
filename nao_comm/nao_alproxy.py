@@ -16,6 +16,9 @@ class NaoALProxy:
         self.port = 9559
         self.success = False
 
+        self.blinking_on = True
+
+
         i=0
         while ((not self.success) and i<=100):
             if nao_ip is None:
@@ -48,6 +51,8 @@ class NaoALProxy:
         self.robotConfig = self.motionProxy.getRobotConfig()  # Get the Robot Configuration
         #self.motionProxy.rest()
         self.motionProxy.setStiffnesses("Body", 1.0)
+
+        # self.motionProxy.setBreathEnabled('Body', True)
 
     def parse_message(self, message):
         # message is json string in the form of:  {'action': 'run_behavior', 'parameters': ["movements/introduction_all_0",...]}
@@ -292,6 +297,19 @@ class NaoALProxy:
 
     def change_pose_1 (self,parameters):
         self.change_pose('RShoulderPitch,RElbowYaw;-50.0,-50.0;0.2')
+
+    def blinking(self, data=None):
+        while True:
+            if self.blinking_on == True:
+                blinking_message = self.parse_behavior({'action': 'blink'})
+            self.publisher.publish(blinking_message)
+            time_now = time.time()
+            if self.current_relationship > 0.5:
+                time_between_blinks = np.random.exponential(2.3)
+            else:
+                time_between_blinks = np.random.exponential(3.5)
+            while self.blinking_on == True and (time.time() - time_now) < time_between_blinks:  # like sleep
+                pass
 
 
 if __name__ == "__main__":

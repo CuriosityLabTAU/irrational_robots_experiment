@@ -3,12 +3,13 @@ import rospy
 from std_msgs.msg import String
 from nao_alproxy import NaoALProxy
 import sys
+import time
 
 
 class NaoListenerNodeMultiple():
-    def __init__(self, nao_ip=['192.168.0.100', '192.168.0.102']):
+    # def __init__(self, nao_ip=['192.168.0.100', '192.168.0.102']):
     # def __init__(self, nao_ip=['192.168.0.100']):
-    # def __init__(self, nao_ip=[]):
+    def __init__(self, nao_ip=[]):
         # input is an array of ip's (in strings)
         self.nao_alproxy = []
         self.publisher = []
@@ -21,6 +22,7 @@ class NaoListenerNodeMultiple():
         rospy.init_node('nao_listener_node')  # init a listener:
         # rospy.Subscriber('nao_state', String, self.callback_nao_state)
         print('=========== NaoListenerNode =============')
+
         rospy.spin()  # spin() simply keeps python from exiting until this node is stopped
 
     def callback_to_nao(self, data, i):

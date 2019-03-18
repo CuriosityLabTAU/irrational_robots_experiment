@@ -36,7 +36,7 @@ class NaoSubconscious():
         rospy.Subscriber(name_subscriber_alive, String, self.alive)
         rospy.Subscriber(name_subscriber_blinking, String, self.blinking)
 
-
+        self.blinking()
         rospy.spin()
 
     def parse_behavior(self, _dict):
@@ -72,7 +72,7 @@ class NaoSubconscious():
             self.publisher.publish(message)
 
 
-    def blinking(self,data):
+    def blinking(self,data=None):
         while True:
             if self.blinking_on == True:
                 blinking_message = self.parse_behavior({'action': 'blink'})
@@ -86,7 +86,7 @@ class NaoSubconscious():
                 pass
 
 
-    def alive(self, data):
+    def alive(self, data=None):
         while True:
             message = self.parse_behavior(
             {'action': 'move_head_naturally', 'parameters': [str(self.current_relationship)]})
@@ -100,7 +100,8 @@ class NaoSubconscious():
 
 
 
-strat=NaoSubconscious('192.168.0.100','1')
+# strat=NaoSubconscious('192.168.0.100','1')
+strat=NaoSubconscious(sys.argv[1],sys.argv[2])
 
 
 

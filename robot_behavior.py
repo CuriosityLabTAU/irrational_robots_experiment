@@ -22,16 +22,14 @@ from std_msgs.msg import String
 
 from time import sleep
 from datetime import datetime
+import sys
 
 # ### read the story from json
 # stories = json.load(open('story_dict.json'))
 
 
 ### num of robots connected
-num_robots = 2
-
-rating_times = 1#27
-ranking_times = 1#52
+num_robots = 1
 
 ### path to sound files on the robot
 robot_sound_path = '/home/nao/naoqi/sounds/HCI/'
@@ -88,11 +86,8 @@ def log_entery(**kwargs):
     global my_logger
     # d = pd.DataFrame.from_dict({'time':[], 'state':[], 'val':[]})
     d = {}
-    ### current time
-    # ct = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    a = pd.to_datetime('now')
-    # d['time'] = pd.to_datetime(a, format='%d/%b/%Y:%H:%M:%S +0000').strftime('%Y%m%d %H:%M:%S')
-    d['time'] = [pd.to_datetime('now')]
+
+    d['time'] = [pd.to_datetime('now')] # current time
     d['state'] = [kwargs['state']]
     d['val'] = [str(kwargs['val'])]
 
@@ -244,7 +239,7 @@ def generate_robot_behavior(robots_publisher, which_robot, ps, question_qubits, 
             log_entery(**{'state':'robot%s' % which_robot,
                                                  'val': {'intro' :answer_intro[i],'rankings' :ps}})
 
-            for i, p in enumerate(ps):
+            for i, p in enumerate(ps[:3]):
                 action = {'action': 'run_behavior', 'parameters': [robot_behavior_path + 'suspect_%s' % p, 'wait']}
                 run_robot_behavior(robots_publisher, which_robot, action)
 
@@ -352,11 +347,11 @@ def get_U_question():
     return np.eye(16,16)
 
 
-
-def flow():
+def flow(user):
     ### initialize robot quantum state according to chosen rationality.
     ### H its a dictionary (array) of all hamiltonians
     global my_logger
+
     log_entery(**{'state': 'event','val': 'experiment start'})
 
     person_state = {}
@@ -379,6 +374,7 @@ def flow():
 
         action = {"action": "wake_up"}
         run_robot_behavior(robots_publisher, i + 1, action)
+
 
     H1 = intialize_robots_H(rationality='rational', hs = hs1) # hs - to create the ir/rationality
     H2 = intialize_robots_H(rationality='irrational', hs = hs2)
@@ -428,7 +424,6 @@ def flow():
     for r in answering_order:
         # temp = raw_input('1st response of robot %d continue?\n' % r)
         robots['H'][r], robots['state'][r]['1'] = robot_behavior(robots_publisher,r, robots['H'][r], person['H'], question_qubits=cq['qq'], psi=robots['state'][r]['0'])
-        # sleep(rating_times)
 
     log_entery(**{'state':'robots_states' + q, 'val':robots})
 
@@ -473,7 +468,6 @@ def flow():
     for r in answering_order:
         robots['state'][r]['1'] = np.dot(Uq, robots['state'][r]['1'])
         robots['H'][r], robots['state'][r]['2'] = robot_behavior(robots_publisher, r, robots['H'][r], person['H'], question_qubits=cq['qq'], psi=robots['state'][r]['1'])
-        sleep(rating_times)
     log_entery(**{'state':'robots_states' + q, 'val': robots})
 
 
@@ -494,7 +488,6 @@ def flow():
     for r in answering_order:
         robots = robot_behavior(robots_publisher, r, robots['H'][r],
                        person['H'], question_qubits=cq['qq'], psi=robots['state'][r]['1'], qtype = cq['qtype'], robots = robots)
-        sleep(ranking_times)
     log_entery(**{'state':'robots_states' + q + '_ranks', 'val': robots})
 
     ### The detective ask the person who did it?
@@ -513,24 +506,15 @@ def flow():
     app_closed = extract_info_from_buttons(person_buttons, question_type='end_app')
     log_entery(**{'state':'event', 'val':'experiment ended'})
 
-    # j = json.dumps(my_logger)
-    # f = open("dict.json", "w")
-    # f.write(j)
-    # f.close()
-
-    # fname2save = 'my_logger.pkl'
-    # pickle.dump(open(fname2save, 'wb'))
-    # print('logger saved')
-    #
 
     my_logger = my_logger[['time','state', 'val']]
-    my_logger.to_csv('my_logger.csv')
+    my_logger.to_csv('my_logger_{date:%Y-%m-%d %H:%M:%S}.csv'.format( date=datetime.datetime.now()))
 
-    for r in range(2):
+    for r in range(num_robots):
         action = {"action": "rest"}
         run_robot_behavior(robots_publisher, r + 1, action)
 
-flow()
-
+flow('test')
+# flow(sys.argv[1])
 
 # pickle.load(open(fname2read, 'rb'))

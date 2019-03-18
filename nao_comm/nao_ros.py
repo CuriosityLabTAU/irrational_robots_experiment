@@ -81,6 +81,7 @@ class NaoNode():
 
         # wake_up
         self.wake_up()
+        self.motionProxy.setBreathEnabled('Body', True)
 
         # if self.node_name!='3':
         #
@@ -446,7 +447,8 @@ class NaoNode():
         # rest
         self.rest()
 
-strat=NaoNode('192.168.0.100','1')
+# strat=NaoNode('192.168.0.100','1')
+strat=NaoNode(sys.argv[1],sys.argv[2])
 
 #
 # strat=NaoNode('192.168.0.100','right')  #FOR TEST!!!!!!!!!!
