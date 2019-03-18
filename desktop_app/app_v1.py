@@ -104,16 +104,22 @@ def pleas_rate(self, suspects):
     scales = {}
 
     for i, photo in enumerate(suspects):
-        scales[photo] = tk.Scale(self, from_=0, to=100, orient='horizontal', resolution=10, length=350, bg='black', fg='white')
+        scales[photo] = tk.Scale(self, from_=100, to=0, orient='horizontal', resolution=10, length=350, bg='black', fg='white')
 
         scales[photo].config(highlightthickness=0)
-        scales[photo].grid(row=i + 2, column=0, columnspan=9, padx=10, pady=20, sticky='n')
+        scales[photo].grid(row=i + 2, column=1, columnspan=7, padx=10, pady=20, sticky='n')
 
         image = Image.open(path + 'suspect_' + photo + '.png')
         photo = ImageTk.PhotoImage(image)
         label = tk.Label(self, image=photo, bg='black')
         label.image = photo  # keep a reference!
         label.grid(row=i + 2, column=9, sticky='e')
+
+        likely = tk.Label(self, text = '100 %', bg='black', fg='white')
+        likely.grid(row=i + 2, column=0, sticky='e')
+
+        not_likely = tk.Label(self, text='0 %', bg='black', fg='white')
+        not_likely.grid(row=i + 2, column=8, sticky='e')
 
     return scales, i + 2
 
@@ -341,6 +347,6 @@ app.mainloop()
 
 # relative positioning --> independent of the screen size --> better for full screen
 # https://www.python-course.eu/tkinter_layout_management.phpv --> see *.place()
-# todo: torr rememeber you need it to work not to be the pretiest.
+# todo: torr remember you need it to work not to be the pprettiest
 
 # todo: sound files!!!

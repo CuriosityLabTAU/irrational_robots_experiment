@@ -29,7 +29,7 @@ import sys
 
 
 ### num of robots connected
-num_robots = 1
+num_robots = 2
 
 ### path to sound files on the robot
 robot_sound_path = '/home/nao/naoqi/sounds/HCI/'
@@ -191,6 +191,7 @@ def update_H(H_robot, H_person, question_qubits, update = 'robot'):
             H_person[h] = H_robot[h]
     return H_robot, hs
 
+
 def generate_robot_behavior(robots_publisher, which_robot, ps, question_qubits, qtype = 'rate', test = True):
     '''
     send to the robot (with ROS) what to do.
@@ -347,7 +348,7 @@ def get_U_question():
     return np.eye(16,16)
 
 
-def flow(user):
+def flow():
     ### initialize robot quantum state according to chosen rationality.
     ### H its a dictionary (array) of all hamiltonians
     global my_logger
@@ -508,13 +509,10 @@ def flow(user):
 
 
     my_logger = my_logger[['time','state', 'val']]
-    my_logger.to_csv('my_logger_{date:%Y-%m-%d %H:%M:%S}.csv'.format( date=datetime.datetime.now()))
+    my_logger.to_csv('my_logger_{date:%Y-%m-%d %H:%M:%S}.csv'.format( date=datetime.now()))
 
     for r in range(num_robots):
         action = {"action": "rest"}
         run_robot_behavior(robots_publisher, r + 1, action)
 
-flow('test')
-# flow(sys.argv[1])
-
-# pickle.load(open(fname2read, 'rb'))
+flow()
