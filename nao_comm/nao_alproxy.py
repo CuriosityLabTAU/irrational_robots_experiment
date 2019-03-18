@@ -50,7 +50,8 @@ class NaoALProxy:
     def start_nao(self):
         self.robotConfig = self.motionProxy.getRobotConfig()  # Get the Robot Configuration
         #self.motionProxy.rest()
-        self.motionProxy.setStiffnesses("Body", 1.0)
+        # self.motionProxy.setStiffnesses("Body", 1.0)
+        self.motionProxy.stiffnessInterpolation("Body", 1.0, 1.0)
 
         # self.motionProxy.setBreathEnabled('Body', True)
 
