@@ -3,15 +3,24 @@
 
 # import tkinter as tk # python 3
 import Tkinter as tk
-from playsound import playsound
 import numpy as np
+
+from pygame import mixer
+mixer.init(frequency=16000, size=-16, channels=2, buffer=2048)
 
 from PIL import Image, ImageTk
 import random
 from time import sleep
 
 LARGE_FONT = ("Verdana", 12)
-path = 'desktop_app/images/'
+# path = 'desktop_app/images/'
+path = 'images/'
+
+# sounds_path = 'desktop_app/sounds/'
+sounds_path = 'sounds/'
+
+import threading
+Gender = 'f'
 
 class SeaofBTCapp(tk.Tk):
 
@@ -21,10 +30,10 @@ class SeaofBTCapp(tk.Tk):
         container = tk.Frame(self, background="black")
 
         container.pack(side="top", fill="both", expand=True)
-
+        self.gender = None
         self.frames = {}
 
-        for F in (StartPage, OpeningPage, PageOne, PageTwo, PageThree, PageFour, PageFive, PageSix,PageSeven, EndPage):
+        for F in (StartPage, ControlScreen,OpeningPage, PageOne, PageTwo, PageThree, PageFour, PageFive, PageSix,PageSeven, EndPage):
             frame = F(container, self)
 
             self.frames[F] = frame
@@ -45,11 +54,17 @@ class StartPage(tk.Frame):
         label = tk.Label(self, text="Start Page", font=LARGE_FONT)
         label.pack(pady=10, padx=10)
 
-        for i, F in enumerate((OpeningPage, PageOne, PageTwo, PageThree, PageFour, PageFive, PageSix, PageSeven, EndPage)):
+        for i, F in enumerate((ControlScreen, OpeningPage, PageOne, PageTwo, PageThree, PageFour, PageFive, PageSix, PageSeven, EndPage)):
             b = tk.Button(self, text='visit Page %d' % (i + 1),command=lambda f=F: controller.show_frame(f))
             b.pack()
 
-def transition(widget_values, controller, page):
+def transition(widget_values, controller, page, gender = 'f', parent = None):
+    global Gender
+    print(Gender)
+    if Gender != 'f':
+        # parent.master.gender = gender
+        Gender = gender
+
     if widget_values != None:
         d = {}
         try: # when we have ratings (in a dict)
@@ -63,6 +78,11 @@ def transition(widget_values, controller, page):
             print(widget_values)
 
     controller.show_frame(page)
+
+    t = threading.Thread(target = play_file, args = (page, gender,))
+    t.start()
+
+    # play_file(page, gender)
 
 def agree_with(self1, controller, page, n = 2):
     '''creating agree screen'''
@@ -123,14 +143,32 @@ def pleas_rate(self, suspects):
 
     return scales, i + 2
 
-def next_button(self, scales, controller, page, i):
+def next_button(self, scales, controller, page, i, gender = 'f', parent = None):
     button1 = tk.Button(self, text="<--", width=20,
-                        command=lambda: transition(scales, controller, page))
+                        command=lambda: transition(scales, controller, page, gender, parent))
     button1.grid(row=i + 1, column=1, columnspan=2)
 
 
-class PageOne(tk.Frame):
 
+class ControlScreen(tk.Frame):
+    global Gender
+    def __init__(self, parent, controller):
+        tk.Frame.__init__(self, parent)
+        label = tk.Label(self, text="Control Page", font=LARGE_FONT)
+        label.grid(row=0, columnspan =2)
+
+        enteries = {}
+        for i, txt in enumerate(['user id', 'gender']):
+            label = tk.Label(self, text = txt.capitalize(), bg='black', fg='white')
+            label.grid(row=i+1, column =0, sticky='e')
+            enteries[txt] = tk.Entry(self)
+            enteries[txt].grid(row=i+1, column = 1)
+        Gender = enteries['gender'].get().strip().lower()
+        next_button(self, enteries, controller, OpeningPage, 10)
+
+
+class PageOne(tk.Frame):
+    global Gender
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
 
@@ -139,6 +177,12 @@ class PageOne(tk.Frame):
         label = tk.Label(self, image=photo, bg='black')
         label.image = photo  # keep a reference!
         label.grid(row=0, columnspan=10, sticky='e')
+        print(parent.master.gender)
+
+        # if parent.master.gender == 'm': # todo: insert gender to parent somehow
+        if Gender == 'm':
+            print('male!')
+
 
         image = Image.open(path + 'rate' + '.png')
         photo = ImageTk.PhotoImage(image)
@@ -151,6 +195,20 @@ class PageOne(tk.Frame):
 
         next_button(self, scales, controller, PageTwo, i)
 
+def play_file(page = None, gender = 'f'):
+    d = []
+    if page == PageOne:
+        d.append(mixer.Sound(sounds_path + 'intor0_1.wav'))
+        d.append(mixer.Sound(sounds_path + 'intro0_2.wav'))
+        if gender == 'm':
+            d.append(mixer.Sound(sounds_path + 'intro0_3m.wav'))
+        else:
+            d.append(mixer.Sound(sounds_path + 'intro0_3f.wav'))
+        d.append(mixer.Sound(sounds_path + 'rate.wav'))
+        for i in d:
+            while mixer.get_busy():
+                pass
+            i.play()
 
 class PageTwo(tk.Frame):
 
@@ -338,7 +396,7 @@ class OpeningPage(tk.Frame):
         image = Image.open(path + 'begin_button' + '.png')
         photo = ImageTk.PhotoImage(image)
 
-        b = tk.Button(self, image=photo, bg=clr, command=lambda: transition(None, controller, PageOne))
+        b = tk.Button(self, image=photo, bg=clr, command=lambda: transition(None, controller, PageOne, parent.master.gender))
         b.grid(row=1, pady=10)
         b.image = photo
 
@@ -347,6 +405,6 @@ app.mainloop()
 
 # relative positioning --> independent of the screen size --> better for full screen
 # https://www.python-course.eu/tkinter_layout_management.phpv --> see *.place()
-# todo: torr remember you need it to work not to be the pprettiest
+# todo: torr remember you need it to work not to be the prettiest
 
 # todo: sound files!!!
