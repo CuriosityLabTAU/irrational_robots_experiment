@@ -6,6 +6,7 @@ naos = ['192.168.0.101', '192.168.0.102']
 robot_colors = {'red': 'rational',
                 'blue': 'irrational'}
 # naos = ['192.168.0.101']
+# naos = [[],[]]
 
 user_number = 'test_run'
 

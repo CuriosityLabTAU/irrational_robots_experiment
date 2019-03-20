@@ -394,6 +394,11 @@ def flow():
 
     log_entery(**{'state':'event','val':'experiment start'})
 
+    # person_buttons = ast.literal_eval(get_from_kivi(app_thread, test = False))
+    # log_entery(**{'user_id': person_buttons['User_id']})
+    # log_entery(**{'gender' : person_buttons['Gender']})
+
+
     ### present story 1
     present_info(story_dict, 0)
     q = '0'
