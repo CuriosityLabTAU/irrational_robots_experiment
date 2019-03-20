@@ -60,10 +60,10 @@ class StartPage(tk.Frame):
 
 def transition(widget_values, controller, page, gender = 'f', parent = None):
     global Gender
-    print(Gender)
-    if Gender != 'f':
-        # parent.master.gender = gender
-        Gender = gender
+
+    if page == OpeningPage:
+        Gender = widget_values['gender'].get()
+
 
     if widget_values != None:
         d = {}
@@ -79,7 +79,7 @@ def transition(widget_values, controller, page, gender = 'f', parent = None):
 
     controller.show_frame(page)
 
-    t = threading.Thread(target = play_file, args = (page, gender,))
+    t = threading.Thread(target = play_file, args = (page, Gender,))
     t.start()
 
     # play_file(page, gender)
@@ -163,7 +163,9 @@ class ControlScreen(tk.Frame):
             label.grid(row=i+1, column =0, sticky='e')
             enteries[txt] = tk.Entry(self)
             enteries[txt].grid(row=i+1, column = 1)
+
         Gender = enteries['gender'].get().strip().lower()
+
         next_button(self, enteries, controller, OpeningPage, 10)
 
 
