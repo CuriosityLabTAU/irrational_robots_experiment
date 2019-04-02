@@ -2,13 +2,16 @@ import threading
 import os
 
 num_of_robots = 2
+###     first ip - red , second ip - blue
 naos = ['192.168.0.101', '192.168.0.102']
-robot_colors = {'red': 'rational',
-                'blue': 'irrational'}
+
+# robot_colors = {'red': 'rational',
+#                 'blue': 'irrational'}
+# user_number = 'test_run'
+
 # naos = ['192.168.0.101']
 # naos = [[],[]]
 
-user_number = 'test_run'
 
 def worker0():
     os.system('roscore')

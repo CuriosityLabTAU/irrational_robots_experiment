@@ -13,20 +13,20 @@ import random
 from time import sleep
 
 LARGE_FONT = ("Verdana", 12)
-# path = 'desktop_app/images/'
-path = 'images/'
-
-# sounds_path = 'desktop_app/sounds/'
-sounds_path = 'sounds/'
 
 import threading
 Gender = 'f'
+path, sounds_path = 'images/', 'sounds/'
 
 class SeaofBTCapp(tk.Tk):
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, test = False, *args, **kwargs):
+        global path, sounds_path
         tk.Tk.__init__(self, *args, **kwargs)
         self.geometry('1050x600')  # set size of the main window to 300x300 pixels
+        if test == False:
+            sounds_path = 'desktop_app/sounds/'
+            path = 'desktop_app/images/'
         container = tk.Frame(self, background="black")
 
         container.pack(side="top", fill="both", expand=True)
@@ -158,7 +158,7 @@ class ControlScreen(tk.Frame):
         label.grid(row=0, columnspan =2)
 
         enteries = {}
-        for i, txt in enumerate(['user id', 'gender']):
+        for i, txt in enumerate(['user id', 'gender', 'red side', 'red rationality', 'blue side', 'blue rationality']):
             label = tk.Label(self, text = txt.capitalize(), bg='black', fg='white')
             label.grid(row=i+1, column =0, sticky='e')
             enteries[txt] = tk.Entry(self)
@@ -394,8 +394,7 @@ class OpeningPage(tk.Frame):
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
 
-
-        image = Image.open(path + 'begin_text' + '.png')
+        image = Image.open(path + 'begin_text.png')
         photo = ImageTk.PhotoImage(image)
         label = tk.Label(self, image=photo, bg='black')
         label.image = photo  # keep a reference!
@@ -409,6 +408,7 @@ class OpeningPage(tk.Frame):
         b.grid(row=1, pady=10)
         b.image = photo
 
+# app = SeaofBTCapp(test = True)
 app = SeaofBTCapp()
 app.mainloop()
 
@@ -416,4 +416,3 @@ app.mainloop()
 # https://www.python-course.eu/tkinter_layout_management.phpv --> see *.place()
 # todo: torr remember you need it to work not to be the prettiest
 
-# todo: sound files!!!

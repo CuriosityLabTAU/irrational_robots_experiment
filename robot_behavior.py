@@ -24,6 +24,9 @@ from time import sleep
 from datetime import datetime
 import sys
 
+from pygame import mixer
+mixer.init(frequency=16000, size=-16, channels=2, buffer=2048)
+
 # ### read the story from json
 # stories = json.load(open('story_dict.json'))
 
@@ -377,16 +380,6 @@ def flow():
         run_robot_behavior(robots_publisher, i + 1, action)
 
 
-    H1 = intialize_robots_H(rationality='rational', hs = hs1) # hs - to create the ir/rationality
-    H2 = intialize_robots_H(rationality='irrational', hs = hs2)
-
-    robots = {'H': {1:H1, 2:H2},
-              'state' : {1: robot1_state, 2: robot2_state},
-              'rankings': {1:[], 2:[]}}
-
-    person = {'H':[],
-              'state':person_state}
-
     log_entery(**{'state':'event','val':'robot initialized'})
 
     ### INITIALIZE APP ###
@@ -398,6 +391,23 @@ def flow():
     # log_entery(**{'user_id': person_buttons['User_id']})
     # log_entery(**{'gender' : person_buttons['Gender']})
 
+    output = app_thread.stdout.readline()
+
+    ### getting the params of the robots and person.
+    setup_params = app_thread.stdout.readline()
+    log_entery(**{'state':'robots_setup','val':str(setup_params)})
+    setup_params = ast.literal_eval(setup_params)
+
+    ### robot 1 --> red, robot 2 --> blue !!!
+    H1 = intialize_robots_H(rationality=setup_params['red rationality'], hs = hs1) # hs - to create the ir/rationality
+    H2 = intialize_robots_H(rationality=setup_params['blue rationality'], hs = hs2)
+
+    robots = {'H': {1:H1, 2:H2},
+              'state' : {1: robot1_state, 2: robot2_state},
+              'rankings': {1:[], 2:[]}}
+
+    person = {'H':[],
+              'state':person_state}
 
     ### present story 1
     present_info(story_dict, 0)
