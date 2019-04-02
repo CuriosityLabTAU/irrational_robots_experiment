@@ -202,15 +202,22 @@ def play_file(page = None, gender = 'f'):
     if page == PageOne:
         d.append(mixer.Sound(sounds_path + 'intor0_1.wav'))
         d.append(mixer.Sound(sounds_path + 'intro0_2.wav'))
-        if gender == 'm':
-            d.append(mixer.Sound(sounds_path + 'intro0_3m.wav'))
-        else:
-            d.append(mixer.Sound(sounds_path + 'intro0_3f.wav'))
+        d.append(mixer.Sound(sounds_path + 'intro0_3%s.wav' % gender))
         d.append(mixer.Sound(sounds_path + 'rate.wav'))
-        for i in d:
-            while mixer.get_busy():
-                pass
-            i.play()
+    elif page == PageTwo:
+        d.append(mixer.Sound(sounds_path + 'suspect_c_and_d_intro.wav'))
+    elif page == PageThree:
+        d.append(mixer.Sound(sounds_path + 'rate.wav'))
+    elif page == PageFour:
+        d.append(mixer.Sound(sounds_path + 'suspect_b_and_d_intro.wav'))
+    elif page == PageSix:
+        d.append(mixer.Sound(sounds_path + 'who_did_it.wav'))
+    elif page == PageSeven:
+        d.append(mixer.Sound(sounds_path + 'hire_%s.wav' % gender))
+    for i in d:
+        while mixer.get_busy():
+            pass
+        i.play()
 
 class PageTwo(tk.Frame):
 
