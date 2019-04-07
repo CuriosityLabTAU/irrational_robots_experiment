@@ -124,13 +124,20 @@ def callback_nao_state(data):
         except:
             pass
 
-def intialize_robots_comm():
+def intialize_robots_comm(num_robots):
     ### intiliaze the communication with the robots
     robots_publisher = []
     for i in range(num_robots):
+        print(i)
         robots_publisher.append(rospy.Publisher('to_nao_%d' % i, String, queue_size=10))
         rospy.init_node('manager_node')  # init a listener:
         rospy.Subscriber('nao_state_%d' % i, String, callback_nao_state)
+
+        action = {"action": "wake_up"}
+        run_robot_behavior(robots_publisher, i + 1, action)
+
+        sleep(2)
+
     return robots_publisher
 
 
@@ -367,18 +374,7 @@ def flow():
     robot2_state['0'] = psi0
 
     ### start communication with the robots
-    # robots_publisher = intialize_robots_comm(2)
-
-    robots_publisher = []
-    for i in range(num_robots):
-        robots_publisher.append(rospy.Publisher('to_nao_%d' % i, String, queue_size=10))
-        rospy.init_node('manager_node')  # init a listener:
-        rospy.Subscriber('nao_state_%d' % i, String, callback_nao_state)
-
-
-        action = {"action": "wake_up"}
-        run_robot_behavior(robots_publisher, i + 1, action)
-
+    robots_publisher = intialize_robots_comm(num_robots)
 
     log_entery(**{'state':'event','val':'robot initialized'})
 
@@ -432,10 +428,9 @@ def flow():
     log_entery(**{'state':'story'+q, 'val':cq})
 
     answering_order = robots_answering_order()
-    print(answering_order)
     ### generate robots answer
 
-    sleep(3)
+    sleep(10)
 
     for r in answering_order:
         # temp = raw_input('1st response of robot %d continue?\n' % r)
@@ -478,7 +473,8 @@ def flow():
     Uq = get_U_question()
     log_entery(**{'state':'U_matrix'+q, 'val':Uq})
 
-    sleep(3)
+    sleep(12)
+
     answering_order = robots_answering_order()
     ### generate robots answer
     for r in answering_order:
@@ -499,6 +495,7 @@ def flow():
     person_rankings = extract_info_from_buttons(person_buttons, question_type=cq['qtype'])
     log_entery(**{'state':'person_rankings' + q, 'val': person_rankings})
 
+    sleep(3)
     answering_order = robots_answering_order()
     ### robots gives ranking
     for r in answering_order:

@@ -3,7 +3,7 @@ import os
 
 num_of_robots = 2
 ###     first ip - red , second ip - blue
-naos = ['192.168.0.101', '192.168.0.102']
+naos = ['192.168.0.101', '192.168.0.100']
 
 # robot_colors = {'red': 'rational',
 #                 'blue': 'irrational'}

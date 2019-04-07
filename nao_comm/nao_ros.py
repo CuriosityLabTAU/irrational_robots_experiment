@@ -144,7 +144,6 @@ class NaoNode():
             if len(parameters) > 1:
                 if parameters[1] == 'wait':
                     self.managerProxy.runBehavior(behavior)
-
                 else:
                     self.managerProxy.post.runBehavior(behavior)
             else:
