@@ -141,7 +141,7 @@ def intialize_robots_comm(num_robots):
     return robots_publisher
 
 
-def intialize_robots_H(rationality, hs = None):
+def intialize_robots_H(rationality, df, hs = None):
     H = {'h_a': [], 'h_b': [], 'h_ab': [],
          'h_c': [], 'h_d': [], 'h_cd': [],
          'h_ac': [], 'h_ad': [], 'h_bc': [], 'h_bd': [], 'h_cd': []}
@@ -153,6 +153,27 @@ def intialize_robots_H(rationality, hs = None):
     else:
         for k, v in hs.items():
             H[k] = v
+
+    ### sub sample the dataframe according to the rationality
+    if rationality == 'rational':
+        df = df[df['conj_irr'] < -0.8]
+    elif rationality == 'irrational':
+        df = df[df['conj_irr'] > -0.8]
+
+    ### take random sample from the dataframe
+    a = df[['ha','hb','hab']].sample(1)
+    b = df[['ha','hb','hab']].sample(1)
+    H['ha'] = a['ha'].values[0]
+    H['hb'] = a['hb'].values[0]
+    H['hc'] = b['ha'].values[0]
+    H['hd'] = b['hb'].values[0]
+    H['hab'] = a['hab'].values[0]
+    H['hac'] = df['hab'].sample(1).values[0]
+    H['had'] = df['hab'].sample(1).values[0]
+    H['hbc'] = b['hab'].values[0]
+    H['hbd'] = df['hab'].sample(1).values[0]
+    H['hcd'] = df['hab'].sample(1).values[0]
+
     return H
 
 
@@ -355,7 +376,9 @@ def get_from_kivi(app_thread = None, test = True, qtype = 'rate'):
 
 
 def get_U_question():
-    return np.eye(16,16)
+    U = pd.read_csv('U.csv').values()
+    # np.eye(16, 16)
+    return U
 
 
 def flow():
@@ -395,8 +418,9 @@ def flow():
     setup_params = ast.literal_eval(setup_params)
 
     ### robot 1 --> red, robot 2 --> blue !!!
-    H1 = intialize_robots_H(rationality=setup_params['red rationality'], hs = hs1) # hs - to create the ir/rationality
-    H2 = intialize_robots_H(rationality=setup_params['blue rationality'], hs = hs2)
+    rationality_df = pd.read_csv('p_from_h.csv').to_dict()
+    H1 = intialize_robots_H(rationality=setup_params['red rationality'], df=rationality_df, hs = hs1) # hs - to create the ir/rationality
+    H2 = intialize_robots_H(rationality=setup_params['blue rationality'], df=rationality_df, hs = hs2)
 
     robots = {'H': {1:H1, 2:H2},
               'state' : {1: robot1_state, 2: robot2_state},
