@@ -3,11 +3,7 @@ import os
 
 num_of_robots = 2
 ###     first ip - red , second ip - blue
-naos = ['192.168.0.101', '192.168.0.100']
-
-# robot_colors = {'red': 'rational',
-#                 'blue': 'irrational'}
-# user_number = 'test_run'
+naos = ['192.168.0.100', '192.168.0.101']
 
 # naos = ['192.168.0.101']
 # naos = [[],[]]
@@ -35,8 +31,7 @@ def worker5(robots_colors):
 
 print('''Starting the Irrational Robots Experiment
 Check that you have 2 robots.
-Did you updated the IPs?
-Did you choose rationality per color?''')
+Did you updated the IPs?''')
 
 t0 = threading.Thread(target=worker1)
 t0.start()

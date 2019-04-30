@@ -48,10 +48,15 @@ robot_end_signal = {}
 hq = {0:'a', 1:'b', 2:'c', 3:'d'}
 
 ### questions and the qubits they ask about
-information = {'0': {'qq': [0, 1], 'qtype': 'rate'},
+suspect_information = {'0': {'qq': [0, 1], 'qtype': 'rate'},
                '1': {'qq': [2, 3], 'qtype': 'rate'},
                '2': {'qq': [0, 2], 'qtype': 'rate'},
                '3': {'qq': [1, 3], 'qtype': 'rank'},}
+
+art_information = {'0': {'qq': [0, 1], 'qtype': 'rate'},
+               '1': {'qq': [2, 3], 'qtype': 'rate'},
+               '2': {'qq': [0, 3], 'qtype': 'rate'},
+               '3': {'qq': [1, 2], 'qtype': 'rank'},}
 
 
 ### initial psi for evereyone
@@ -156,23 +161,23 @@ def intialize_robots_H(rationality, df, hs = None):
 
     ### sub sample the dataframe according to the rationality
     if rationality == 'rational':
-        df = df[df['conj_irr'] < -0.8]
+        df = df[df['irr_conj'] < -0.8]
     elif rationality == 'irrational':
-        df = df[df['conj_irr'] > -0.8]
+        df = df[df['irr_conj'] > 0.8]
 
     ### take random sample from the dataframe
     a = df[['ha','hb','hab']].sample(1)
     b = df[['ha','hb','hab']].sample(1)
-    H['ha'] = a['ha'].values[0]
-    H['hb'] = a['hb'].values[0]
-    H['hc'] = b['ha'].values[0]
-    H['hd'] = b['hb'].values[0]
-    H['hab'] = a['hab'].values[0]
-    H['hac'] = df['hab'].sample(1).values[0]
-    H['had'] = df['hab'].sample(1).values[0]
-    H['hbc'] = b['hab'].values[0]
-    H['hbd'] = df['hab'].sample(1).values[0]
-    H['hcd'] = df['hab'].sample(1).values[0]
+    H['h_a'] = [a['ha'].values[0]]
+    H['h_b'] = [a['hb'].values[0]]
+    H['h_c'] = [b['ha'].values[0]]
+    H['h_d'] = [b['hb'].values[0]]
+    H['h_ab'] = [a['hab'].values[0]]
+    H['h_ac'] = [df['hab'].sample(1).values[0]]
+    H['h_ad'] = [df['hab'].sample(1).values[0]]
+    H['h_bc'] = [b['hab'].values[0]]
+    H['h_bd'] = [df['hab'].sample(1).values[0]]
+    H['h_cd'] = [df['hab'].sample(1).values[0]]
 
     return H
 
@@ -223,7 +228,7 @@ def update_H(H_robot, H_person, question_qubits, update = 'robot'):
     return H_robot, hs
 
 
-def generate_robot_behavior(robots_publisher, which_robot, ps, question_qubits, qtype = 'rate', test = True):
+def generate_robot_behavior(robots_publisher, which_robot, ps, question_qubits, qtype = 'rate', test = True, story = 'suspect'):
     '''
     send to the robot (with ROS) what to do.
     :param ps: probabilities
@@ -254,7 +259,7 @@ def generate_robot_behavior(robots_publisher, which_robot, ps, question_qubits, 
                                                  'val':{'intro' : answer_intro[i],'probs' : probs}})
 
             for p,val in probs:
-                action = {'action': 'run_behavior', 'parameters': [robot_behavior_path + 'suspect_%s' % p, 'wait']}
+                action = {'action': 'run_behavior', 'parameters': [robot_behavior_path + story + '_%s' % p, 'wait']}
                 run_robot_behavior(robots_publisher, which_robot, action)
 
                 action = {'action': 'run_behavior', 'parameters': [robot_behavior_path + 'prob%d' % val, 'wait']}
@@ -272,11 +277,11 @@ def generate_robot_behavior(robots_publisher, which_robot, ps, question_qubits, 
                                                  'val': {'intro' :answer_intro[i],'rankings' :ps}})
 
             for i, p in enumerate(ps[:3]):
-                action = {'action': 'run_behavior', 'parameters': [robot_behavior_path + 'suspect_%s' % p, 'wait']}
+                action = {'action': 'run_behavior', 'parameters': [robot_behavior_path + story + '_%s' % p, 'wait']}
                 run_robot_behavior(robots_publisher, which_robot, action)
 
 
-def robot_behavior(robots_publisher, which_robot, H_robot, H_person, question_qubits = [0,1], psi = psi0, qtype = 'rate', robots = None):
+def robot_behavior(robots_publisher, which_robot, H_robot, H_person, question_qubits = [0,1], psi = psi0, qtype = 'rate', robots = None, story = 'suspect'):
 
     if qtype == 'rate':
         H_robot, hs = update_H(H_robot, H_person, question_qubits, update = 'robot')
@@ -289,11 +294,11 @@ def robot_behavior(robots_publisher, which_robot, H_robot, H_person, question_qu
         total_H = compose_H(full_h, question_qubits, n_qubits=4)
         psi_final = get_psi(total_H, psi)
 
-        generate_robot_behavior(robots_publisher, which_robot, ps, question_qubits, qtype, test = False)
+        generate_robot_behavior(robots_publisher, which_robot, ps, question_qubits, qtype, test = False, story = 'suspect')
         return H_robot, psi_final
     elif qtype == 'rank':
         robots['rankings'][which_robot], _ = robots_rankings(robots['H'][which_robot], psi=robots['state'][which_robot]['2'])
-        generate_robot_behavior(robots_publisher, which_robot, robots['rankings'][which_robot], question_qubits, qtype, test = False)
+        generate_robot_behavior(robots_publisher, which_robot, robots['rankings'][which_robot], question_qubits, qtype, test = False, story = 'suspect')
         return robots
 
 
@@ -376,10 +381,165 @@ def get_from_kivi(app_thread = None, test = True, qtype = 'rate'):
 
 
 def get_U_question():
-    U = pd.read_csv('U.csv').values()
+    U = pd.read_csv('U.csv', index_col = 0).applymap(complex)
+    # U = pd.read_csv('/home/irina/PycharmProjects/irrational_robots_experiment_v1/U.csv').values
     # np.eye(16, 16)
     return U
 
+def run_story(setup_params, app_thread, robots_publisher, story):
+    ### storu_info
+    if story == 'suspect':
+        information = suspect_information.copy()
+    elif story == 'art':
+        information = art_information.copy()
+    ### init person and robots classes
+    person_state = {}
+    robot1_state = {}
+    robot2_state = {}
+
+    person_state['0'] = psi0
+    robot1_state['0'] = psi0
+    robot2_state['0'] = psi0
+
+    ### robot 1 --> red, robot 2 --> blue !!!
+    rationality_df = pd.read_csv('p_from_h.csv')
+    H1 = intialize_robots_H(rationality=setup_params['red rationality'], df=rationality_df,
+                            hs=None)  # hs - to create the ir/rationality
+    H2 = intialize_robots_H(rationality=setup_params['blue rationality'], df=rationality_df, hs=None)
+
+    robots = {'H': {1: H1, 2: H2},
+              'state': {1: robot1_state, 2: robot2_state},
+              'rankings': {1: [], 2: []}}
+
+    person = {'H': [],
+              'state': person_state}
+
+    ### present story 1
+    present_info(story_dict, 0)
+    q = '0'
+    cq = information[q]
+    log_entery(**{'state': 'story' + q, 'val': cq})
+
+    present_info(story_dict, cq['qtype'], cq['qq'])
+    # --> ask the person to rate the probabilities
+    person_buttons = get_from_kivi(app_thread, test=False, qtype=cq['qtype'])
+    person_buttons = ast.literal_eval(person_buttons)
+
+    print(person_buttons)
+
+    log_entery(**{'state': 'person_input' + q, 'val': person_buttons})
+
+    person['H'], person['state']['1'] = person_parameters(person_buttons, person_state=person['state']['0'],
+                                                          question_qubits=cq['qq'], question_type=cq['qtype'])
+    log_entery(**{'state': 'person_state' + q, 'val': person})
+
+    ### pesent more information
+    present_info(story_dict, 1)
+    q = '1'
+    cq = information[q]
+    log_entery(**{'state': 'story' + q, 'val': cq})
+
+    answering_order = robots_answering_order()
+
+    sleep(10)
+
+    ### generate robots answer
+    for r in answering_order:
+        # temp = raw_input('1st response of robot %d continue?\n' % r)
+        robots['H'][r], robots['state'][r]['1'] = robot_behavior(robots_publisher, r, robots['H'][r], person['H'],
+                                                                 question_qubits=cq['qq'], psi=robots['state'][r]['0'])
+
+    log_entery(**{'state': 'robots_states' + q, 'val': robots})
+
+    ### Ask the person which robot do you agree with?
+    present_info(story_dict, 'agree')
+    person_buttons = get_from_kivi(app_thread, test=False, qtype=cq['qtype'])
+    chosen_robot = extract_info_from_buttons(person_buttons, question_type='agree')
+    log_entery(**{'state': 'person_agree' + q, 'val': chosen_robot})
+
+    ### ask the person to give ratings to asked qubits
+    q = '2'
+    cq = information[q]
+    log_entery(**{'state': 'story' + q, 'val': cq})
+
+    present_info(story_dict, cq['qtype'], cq['qq'])
+    person_buttons = get_from_kivi(app_thread, test=False, qtype=cq['qtype'])
+    person_buttons = ast.literal_eval(person_buttons)
+    log_entery(**{'state': 'person_input' + q,
+                  'val': person_buttons})
+
+    H_person_, person['state']['2'] = person_parameters(person_buttons, person_state=person['state']['0'],
+                                                        question_qubits=cq['qq'], question_type=cq['qtype'])
+    ### update current H of the person
+    person['H'], _ = update_H(person['H'], H_person_, cq['qq'], update='person')
+
+    log_entery(**{'state': 'person_state' + q, 'val': person})
+
+    ### present new information --> story 3
+    present_info(stories, 3)
+    q = '3'
+    cq = information[q]
+    log_entery(**{'state': 'story' + q, 'val': cq})
+
+    ### propogate the state using U
+    # start with I - identity.
+    Uq = get_U_question()
+    log_entery(**{'state': 'U_matrix' + q, 'val': Uq})
+
+    sleep(12)
+
+    ### generate robots answer
+    answering_order = robots_answering_order()
+    for r in answering_order:
+        robots['state'][r]['1'] = np.dot(Uq, robots['state'][r]['1'])
+        robots['H'][r], robots['state'][r]['2'] = robot_behavior(robots_publisher, r, robots['H'][r], person['H'],
+                                                                 question_qubits=cq['qq'], psi=robots['state'][r]['1'])
+    log_entery(**{'state': 'robots_states' + q, 'val': robots})
+
+    ### Ask the person which robot do you agree with?
+    present_info(story_dict, 'agree')
+    person_buttons = get_from_kivi(app_thread, test=False, qtype=cq['qtype'])
+    chosen_robot = extract_info_from_buttons(person_buttons, question_type='agree')
+    log_entery(**{'state': 'person_agree' + q, 'val': chosen_robot})
+
+    ### ask the person to rank all the probabilites and the conjunction between them.
+    present_info(story_dict, cq['qtype'], cq['qq'])
+    person_buttons = get_from_kivi(app_thread, test=False, qtype=cq['qtype'])
+    person_rankings = extract_info_from_buttons(person_buttons, question_type=cq['qtype'])
+    log_entery(**{'state': 'person_rankings' + q, 'val': person_rankings})
+
+    sleep(3)
+    answering_order = robots_answering_order()
+    ### robots gives ranking
+    for r in answering_order:
+        robots = robot_behavior(robots_publisher, r, robots['H'][r],
+                                person['H'], question_qubits=cq['qq'], psi=robots['state'][r]['1'], qtype=cq['qtype'],
+                                robots=robots)
+    log_entery(**{'state': 'robots_states' + q + '_ranks', 'val': robots})
+
+    ### The detective ask the person who did it?
+    present_info(story_dict, 'suspect')
+    person_buttons = get_from_kivi(app_thread, test=False, qtype=cq['qtype'])
+    who_did_it = extract_info_from_buttons(person_buttons, question_type=cq[
+        'qtype'])  ### Based on the answer we would know if one changed the ranking after seeing the robots rankings,
+    log_entery(**{'state': 'who_did_it', 'val': who_did_it})
+
+    ### which robot is the detective
+    person_buttons = get_from_kivi(app_thread, test=False, qtype='agree')
+    robot_detective = extract_info_from_buttons(person_buttons, question_type='agree')
+    log_entery(**{'state': 'detective_robot', 'val': robot_detective})
+
+
+    ### app closed after second story ended
+    if story != setup_params['first story']:
+        person_buttons = get_from_kivi(app_thread, test=False, qtype=cq['qtype'])
+        app_closed = extract_info_from_buttons(person_buttons, question_type='end_app')
+        log_entery(**{'state': 'event', 'val': 'experiment ended'})
+    ### move to second story
+    elif story == setup_params['first story']:
+        person_buttons = get_from_kivi(app_thread, test=False, qtype=cq['qtype'])
+        app_closed = extract_info_from_buttons(person_buttons, question_type='end_app')
+        log_entery(**{'state': 'event', 'val': story + ' story started'})
 
 def flow():
     ### initialize robot quantum state according to chosen rationality.
@@ -388,13 +548,9 @@ def flow():
 
     log_entery(**{'state': 'event','val': 'experiment start'})
 
-    person_state = {}
-    robot1_state = {}
-    robot2_state = {}
+    ### rationality dataframe from quantum model simulation
+    rationality_df = pd.read_csv('p_from_h.csv')
 
-    person_state['0'] = psi0
-    robot1_state['0'] = psi0
-    robot2_state['0'] = psi0
 
     ### start communication with the robots
     robots_publisher = intialize_robots_comm(num_robots)
@@ -411,138 +567,21 @@ def flow():
     # log_entery(**{'gender' : person_buttons['Gender']})
 
     output = app_thread.stdout.readline()
+    output = app_thread.stdout.readline()
 
     ### getting the params of the robots and person.
     setup_params = app_thread.stdout.readline()
     log_entery(**{'state':'robots_setup','val':str(setup_params)})
     setup_params = ast.literal_eval(setup_params)
 
-    ### robot 1 --> red, robot 2 --> blue !!!
-    rationality_df = pd.read_csv('p_from_h.csv').to_dict()
-    H1 = intialize_robots_H(rationality=setup_params['red rationality'], df=rationality_df, hs = hs1) # hs - to create the ir/rationality
-    H2 = intialize_robots_H(rationality=setup_params['blue rationality'], df=rationality_df, hs = hs2)
+    ### which story to present first: suspect/ art
+    first_story = setup_params['first story']
 
-    robots = {'H': {1:H1, 2:H2},
-              'state' : {1: robot1_state, 2: robot2_state},
-              'rankings': {1:[], 2:[]}}
-
-    person = {'H':[],
-              'state':person_state}
-
-    ### present story 1
-    present_info(story_dict, 0)
-    q = '0'
-    cq = information[q]
-    log_entery(**{'state':'story'+q,'val':cq})
-
-    present_info(story_dict, cq['qtype'], cq['qq'])
-    # --> ask the person to rate the probabilities
-    person_buttons = get_from_kivi(app_thread, test = False, qtype = cq['qtype'])
-    person_buttons = ast.literal_eval(person_buttons)
-    log_entery(**{'state':'person_input' + q, 'val': person_buttons})
-
-    person['H'], person['state']['1'] = person_parameters(person_buttons, person_state = person['state']['0'],
-                                                    question_qubits = cq['qq'], question_type = cq['qtype'])
-    log_entery(**{'state':'person_state' + q, 'val':person})
-
-    ### pesent more information
-    present_info(story_dict, 1)
-    q = '1'
-    cq = information[q]
-    log_entery(**{'state':'story'+q, 'val':cq})
-
-    answering_order = robots_answering_order()
-    ### generate robots answer
-
-    sleep(10)
-
-    for r in answering_order:
-        # temp = raw_input('1st response of robot %d continue?\n' % r)
-        robots['H'][r], robots['state'][r]['1'] = robot_behavior(robots_publisher,r, robots['H'][r], person['H'], question_qubits=cq['qq'], psi=robots['state'][r]['0'])
-
-    log_entery(**{'state':'robots_states' + q, 'val':robots})
-
-    ### Ask the person which robot do you agree with?
-    present_info(story_dict, 'agree')
-    person_buttons = get_from_kivi(app_thread, test = False, qtype = cq['qtype'])
-    chosen_robot = extract_info_from_buttons(person_buttons, question_type = 'agree')
-    log_entery(**{'state':'person_agree' + q, 'val':chosen_robot})
-
-    ### ask the person to give ratings to asked qubits
-    q = '2'
-    cq = information[q]
-    log_entery(**{'state':'story'+q, 'val':cq})
-
-    present_info(story_dict, cq['qtype'], cq['qq'])
-    person_buttons = get_from_kivi(app_thread, test = False, qtype = cq['qtype'])
-    person_buttons = ast.literal_eval(person_buttons)
-    log_entery(**{'state':'person_input'+q,
-                                         'val':person_buttons})
-
-    H_person_, person['state']['2'] = person_parameters(person_buttons, person_state=person['state']['0'],
-                                                     question_qubits=cq['qq'], question_type=cq['qtype'])
-    ### update current H of the person
-    person['H'], _ = update_H(person['H'], H_person_, cq['qq'], update='person')
-
-    log_entery(**{'state':'person_state' + q, 'val': person})
-
-    ### present new information --> story 3
-    present_info(stories, 3)
-    q = '3'
-    cq = information[q]
-    log_entery(**{'state':'story'+q, 'val':cq})
-
-    ### propogate the state using U
-    # start with I - identity.
-    Uq = get_U_question()
-    log_entery(**{'state':'U_matrix'+q, 'val':Uq})
-
-    sleep(12)
-
-    answering_order = robots_answering_order()
-    ### generate robots answer
-    for r in answering_order:
-        robots['state'][r]['1'] = np.dot(Uq, robots['state'][r]['1'])
-        robots['H'][r], robots['state'][r]['2'] = robot_behavior(robots_publisher, r, robots['H'][r], person['H'], question_qubits=cq['qq'], psi=robots['state'][r]['1'])
-    log_entery(**{'state':'robots_states' + q, 'val': robots})
-
-
-    ### Ask the person which robot do you agree with?
-    present_info(story_dict, 'agree')
-    person_buttons = get_from_kivi(app_thread, test=False, qtype=cq['qtype'])
-    chosen_robot = extract_info_from_buttons(person_buttons, question_type='agree')
-    log_entery(**{'state':'person_agree' + q, 'val': chosen_robot})
-
-    ### ask the person to rank all the probabilites and the conjunction between them.
-    present_info(story_dict, cq['qtype'], cq['qq'])
-    person_buttons = get_from_kivi(app_thread, test=False, qtype=cq['qtype'])
-    person_rankings = extract_info_from_buttons(person_buttons, question_type=cq['qtype'])
-    log_entery(**{'state':'person_rankings' + q, 'val': person_rankings})
-
-    sleep(3)
-    answering_order = robots_answering_order()
-    ### robots gives ranking
-    for r in answering_order:
-        robots = robot_behavior(robots_publisher, r, robots['H'][r],
-                       person['H'], question_qubits=cq['qq'], psi=robots['state'][r]['1'], qtype = cq['qtype'], robots = robots)
-    log_entery(**{'state':'robots_states' + q + '_ranks', 'val': robots})
-
-    ### The detective ask the person who did it?
-    present_info(story_dict, 'suspect')
-    person_buttons = get_from_kivi(app_thread, test=False, qtype=cq['qtype'])
-    who_did_it = extract_info_from_buttons(person_buttons, question_type=cq['qtype'])    ### Based on the answer we would know if one changed the ranking after seeing the robots rankings,
-    log_entery(**{'state':'who_did_it', 'val': who_did_it})
-
-    ### which robot is the detective
-    person_buttons = get_from_kivi(app_thread, test=False, qtype='agree')
-    robot_detective = extract_info_from_buttons(person_buttons, question_type='agree')
-    log_entery(**{'state':'detective_robot', 'val': robot_detective})
-
-    #### app closed
-    person_buttons = get_from_kivi(app_thread, test=False, qtype=cq['qtype'])
-    app_closed = extract_info_from_buttons(person_buttons, question_type='end_app')
-    log_entery(**{'state':'event', 'val':'experiment ended'})
-
+    # run first story
+    run_story(setup_params, app_thread, robots_publisher, first_story)
+    # run second story
+    second_story = list(set(['suspect', 'art']) - set([first_story]))[0]
+    run_story(setup_params, app_thread, robots_publisher, second_story)
 
     my_logger = my_logger[['time','state', 'val']]
     my_logger.to_csv('my_logger_{date:%Y-%m-%d %H:%M:%S}.csv'.format( date=datetime.now()))
