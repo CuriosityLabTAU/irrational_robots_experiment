@@ -25,7 +25,8 @@ from datetime import datetime
 import sys
 
 from pygame import mixer
-mixer.init(frequency=16000, size=-16, channels=2, buffer=2048)
+# mixer.init(frequency=16000, size=-16, channels=2, buffer=2048)
+# mixer.init(frequency=44100, size=-16, channels=2, buffer=2048)
 
 # ### read the story from json
 # stories = json.load(open('story_dict.json'))
@@ -37,8 +38,8 @@ num_robots = 2
 ### path to sound files on the robot
 robot_sound_path = '/home/nao/naoqi/sounds/HCI/'
 ### path to behaviors on the robot
-# robot_behavior_path = 'facilitator-6ea3b8/'
-robot_behavior_path = 'torr_test_v1-3714cd/'
+# robot_behavior_path = 'torr_test_v1-3714cd/'
+robot_behavior_path = 'irrational_robots/'
 
 
 ### global robot flow parameters
@@ -133,15 +134,16 @@ def intialize_robots_comm(num_robots):
     ### intiliaze the communication with the robots
     robots_publisher = []
     for i in range(num_robots):
-        print(i)
+        print('robot %d initialized' % i)
         robots_publisher.append(rospy.Publisher('to_nao_%d' % i, String, queue_size=10))
         rospy.init_node('manager_node')  # init a listener:
         rospy.Subscriber('nao_state_%d' % i, String, callback_nao_state)
 
-        action = {"action": "wake_up"}
-        run_robot_behavior(robots_publisher, i + 1, action)
+    action = {"action": "wake_up"}
+    run_robot_behavior(robots_publisher, 1, action)
+    sleep(1)
+    run_robot_behavior(robots_publisher, 2, action)
 
-        sleep(2)
 
     return robots_publisher
 
@@ -273,8 +275,7 @@ def generate_robot_behavior(robots_publisher, which_robot, ps, question_qubits, 
             action = {'action': 'run_behavior', 'parameters': [robot_behavior_path + '%s' % answer_intro[i], 'wait']}
             run_robot_behavior(robots_publisher, which_robot, action)
 
-            log_entery(**{'state':'robot%s' % which_robot,
-                                                 'val': {'intro' :answer_intro[i],'rankings' :ps}})
+            log_entery(**{'state':'robot%s' % which_robot,'val': {'intro' :answer_intro[i],'rankings' :ps}})
 
             for i, p in enumerate(ps[:3]):
                 action = {'action': 'run_behavior', 'parameters': [robot_behavior_path + story + '_%s' % p, 'wait']}
@@ -294,11 +295,11 @@ def robot_behavior(robots_publisher, which_robot, H_robot, H_person, question_qu
         total_H = compose_H(full_h, question_qubits, n_qubits=4)
         psi_final = get_psi(total_H, psi)
 
-        generate_robot_behavior(robots_publisher, which_robot, ps, question_qubits, qtype, test = False, story = 'suspect')
+        generate_robot_behavior(robots_publisher, which_robot, ps, question_qubits, qtype, test = False, story = story)
         return H_robot, psi_final
     elif qtype == 'rank':
         robots['rankings'][which_robot], _ = robots_rankings(robots['H'][which_robot], psi=robots['state'][which_robot]['2'])
-        generate_robot_behavior(robots_publisher, which_robot, robots['rankings'][which_robot], question_qubits, qtype, test = False, story = 'suspect')
+        generate_robot_behavior(robots_publisher, which_robot, robots['rankings'][which_robot], question_qubits, qtype, test = False, story = story)
         return robots
 
 
@@ -387,7 +388,7 @@ def get_U_question():
     return U
 
 def run_story(setup_params, app_thread, robots_publisher, story):
-    ### storu_info
+    ### story_info
     if story == 'suspect':
         information = suspect_information.copy()
     elif story == 'art':
@@ -403,8 +404,7 @@ def run_story(setup_params, app_thread, robots_publisher, story):
 
     ### robot 1 --> red, robot 2 --> blue !!!
     rationality_df = pd.read_csv('p_from_h.csv')
-    H1 = intialize_robots_H(rationality=setup_params['red rationality'], df=rationality_df,
-                            hs=None)  # hs - to create the ir/rationality
+    H1 = intialize_robots_H(rationality=setup_params['red rationality'],  df=rationality_df, hs=None)  # hs - to create the ir/rationality
     H2 = intialize_robots_H(rationality=setup_params['blue rationality'], df=rationality_df, hs=None)
 
     robots = {'H': {1: H1, 2: H2},
@@ -441,13 +441,16 @@ def run_story(setup_params, app_thread, robots_publisher, story):
 
     answering_order = robots_answering_order()
 
-    sleep(10)
+    t = 8
+    if story == 'art':
+        t = 5
+    sleep(t)
 
     ### generate robots answer
     for r in answering_order:
         # temp = raw_input('1st response of robot %d continue?\n' % r)
         robots['H'][r], robots['state'][r]['1'] = robot_behavior(robots_publisher, r, robots['H'][r], person['H'],
-                                                                 question_qubits=cq['qq'], psi=robots['state'][r]['0'])
+                                                                 question_qubits=cq['qq'], psi=robots['state'][r]['0'], story=story)
 
     log_entery(**{'state': 'robots_states' + q, 'val': robots})
 
@@ -486,14 +489,17 @@ def run_story(setup_params, app_thread, robots_publisher, story):
     Uq = get_U_question()
     log_entery(**{'state': 'U_matrix' + q, 'val': Uq})
 
-    sleep(12)
+    t = 12
+    if story == 'art':
+        t = 8
+    sleep(t)
 
     ### generate robots answer
     answering_order = robots_answering_order()
     for r in answering_order:
         robots['state'][r]['1'] = np.dot(Uq, robots['state'][r]['1'])
         robots['H'][r], robots['state'][r]['2'] = robot_behavior(robots_publisher, r, robots['H'][r], person['H'],
-                                                                 question_qubits=cq['qq'], psi=robots['state'][r]['1'])
+                                                                 question_qubits=cq['qq'], psi=robots['state'][r]['1'], story=story)
     log_entery(**{'state': 'robots_states' + q, 'val': robots})
 
     ### Ask the person which robot do you agree with?
@@ -514,7 +520,7 @@ def run_story(setup_params, app_thread, robots_publisher, story):
     for r in answering_order:
         robots = robot_behavior(robots_publisher, r, robots['H'][r],
                                 person['H'], question_qubits=cq['qq'], psi=robots['state'][r]['1'], qtype=cq['qtype'],
-                                robots=robots)
+                                robots=robots, story=story)
     log_entery(**{'state': 'robots_states' + q + '_ranks', 'val': robots})
 
     ### The detective ask the person who did it?
@@ -555,6 +561,10 @@ def flow():
     ### start communication with the robots
     robots_publisher = intialize_robots_comm(num_robots)
 
+    ### make the robots rest
+    # action = {"action": "rest"}
+    # run_robot_behavior(robots_publisher, 1, action)
+
     log_entery(**{'state':'event','val':'robot initialized'})
 
     ### INITIALIZE APP ###
@@ -566,8 +576,8 @@ def flow():
     # log_entery(**{'user_id': person_buttons['User_id']})
     # log_entery(**{'gender' : person_buttons['Gender']})
 
-    output = app_thread.stdout.readline()
-    output = app_thread.stdout.readline()
+    # output = app_thread.stdout.readline()
+    # output = app_thread.stdout.readline()
 
     ### getting the params of the robots and person.
     setup_params = app_thread.stdout.readline()

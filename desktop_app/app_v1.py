@@ -6,7 +6,10 @@ import Tkinter as tk
 import numpy as np
 
 from pygame import mixer
-mixer.init(frequency=16000, size=-16, channels=2, buffer=2048)
+# mixer.init(frequency=16000, size=-16, channels=2, buffer=2048)
+import pygame
+pygame.init()
+
 
 from PIL import Image, ImageTk
 import random
@@ -15,7 +18,10 @@ from time import sleep
 LARGE_FONT = ("Verdana", 12)
 
 import threading
+
 Gender = 'f'
+# Gender = 'm'
+
 path, sounds_path = 'images/', 'sounds/'
 first_story = 'suspect'
 
@@ -87,7 +93,7 @@ def transition(widget_values, controller, page, gender = 'f', parent = None, p =
         if p == 'suspect':
             if page == EndPage:
                 page = case2
-                print({'story2': 'art'})
+                print('starting story 2')
         elif p == 'art':
             if page == EndPage:
                 pass
@@ -103,13 +109,12 @@ def transition(widget_values, controller, page, gender = 'f', parent = None, p =
         if p == 'art':
             if page == EndPage:
                 page = case2
-                print({'story2': 'suspect'})
+                print('starting story 2')
         elif p == 'suspect':
             if page == EndPage:
                 pass
             else:
                 page = page[0]
-            print page
 
         try:
             controller.show_frame(page[1])
@@ -215,7 +220,7 @@ def pleas_rate_art(self, suspects):
 
     return scales, i + 2
 
-def next_button(self, scales, controller, page, i, gender = 'f', parent = None):
+def next_button(self, scales, controller, page, i, gender = Gender, parent = None):
     button1 = tk.Button(self, text="<--", width=20,
                         command=lambda: transition(scales, controller, page, gender, parent))
     button1.grid(row=i + 1, column=1, columnspan=2)
@@ -223,14 +228,14 @@ def next_button(self, scales, controller, page, i, gender = 'f', parent = None):
 
 
 class ControlScreen(tk.Frame):
-    global Gender,first_story
     def __init__(self, parent, controller):
+        global Gender, first_story
         tk.Frame.__init__(self, parent)
         label = tk.Label(self, text="Control Page", font=LARGE_FONT)
         label.grid(row=0, columnspan =2)
 
         enteries = {}
-        def_vals = ['000', 'f', 'right', 'rational', 'left', 'irrational', 'suspect']
+        def_vals = ['000', Gender, 'right', 'rational', 'left', 'irrational', 'suspect']
         for i, txt in enumerate(['user id', 'gender', 'red side', 'red rationality', 'blue side', 'blue rationality', 'first story']):
             label = tk.Label(self, text = txt.capitalize(), bg='black', fg='white')
             label.grid(row=i+1, column =0, sticky='e')
@@ -250,19 +255,19 @@ class PageOne(tk.Frame):
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
 
-        image = Image.open(path + 'story_1' + '.png')
+        image = Image.open(path + 'diamonds_intro_%s' % Gender + '.png')
         photo = ImageTk.PhotoImage(image)
         label = tk.Label(self, image=photo, bg='black')
         label.image = photo  # keep a reference!
         label.grid(row=0, columnspan=10, sticky='e')
-        print(parent.master.gender)
+        # print(parent.master.gender)
 
-        # if parent.master.gender == 'm': # todo: insert gender to parent somehow
-        if Gender == 'm':
-            print('male!')
+        # # if parent.master.gender == 'm': # todo: insert gender to parent somehow
+        # if Gender == 'm':
+        #     print('male!')
 
 
-        image = Image.open(path + 'rate' + '.png')
+        image = Image.open(path + 'rate.png')
         photo = ImageTk.PhotoImage(image)
         label = tk.Label(self, image=photo, bg='black')
         label.image = photo  # keep a reference!
@@ -275,21 +280,25 @@ class PageOne(tk.Frame):
 
 def play_file_suspects(page = None, gender ='f'):
     d = []
-    if page == PageOne:
-        d.append(mixer.Sound(sounds_path + 'intor0_1.wav'))
-        d.append(mixer.Sound(sounds_path + 'intro0_2.wav'))
+    if page == OpeningPage:
+        d.append(mixer.Sound(sounds_path + 'opening_%s.wav' % gender))
+    elif page == PageOne:
+        d.append(mixer.Sound(sounds_path + 'diamonds_intro_0_%s.wav' % gender))
+        d.append(mixer.Sound(sounds_path + 'diamonds_intro_1.wav'))
         d.append(mixer.Sound(sounds_path + 'intro0_3%s.wav' % gender))
-        d.append(mixer.Sound(sounds_path + 'rate.wav'))
+        d.append(mixer.Sound(sounds_path + 'rate_suspects.wav'))
     elif page == PageTwo:
-        d.append(mixer.Sound(sounds_path + 'suspect_c_and_d_intro.wav'))
+        d.append(mixer.Sound(sounds_path + 'suspects_c_d.wav'))
     elif page == PageThree:
-        d.append(mixer.Sound(sounds_path + 'rate.wav'))
+        d.append(mixer.Sound(sounds_path + 'rate_suspects.wav'))
     elif page == PageFour:
-        d.append(mixer.Sound(sounds_path + 'suspect_b_and_d_intro.wav'))
+        d.append(mixer.Sound(sounds_path + 'suspect_b_d.wav'))
+    elif page == PageFive:
+        d.append(mixer.Sound(sounds_path + 'rate_all_10_%s.wav' % gender))
     elif page == PageSix:
         d.append(mixer.Sound(sounds_path + 'who_did_it.wav'))
     elif page == PageSeven:
-        d.append(mixer.Sound(sounds_path + 'hire_%s.wav' % gender))
+        d.append(mixer.Sound(sounds_path + 'robot_detective_%s.wav' % gender))
     for i in d:
         while mixer.get_busy():
             pass
@@ -298,20 +307,21 @@ def play_file_suspects(page = None, gender ='f'):
 def play_file_art(page=None, gender='f'):
     d = []
     if page == artOne:
-        d.append(mixer.Sound(sounds_path + 'intor0_1.wav'))
-        d.append(mixer.Sound(sounds_path + 'intro0_2.wav'))
-        d.append(mixer.Sound(sounds_path + 'intro0_3%s.wav' % gender))
-        d.append(mixer.Sound(sounds_path + 'rate.wav'))
-    elif page == PageTwo:
-        d.append(mixer.Sound(sounds_path + 'suspect_c_and_d_intro.wav'))
-    elif page == PageThree:
-        d.append(mixer.Sound(sounds_path + 'rate.wav'))
-    elif page == PageFour:
-        d.append(mixer.Sound(sounds_path + 'suspect_b_and_d_intro.wav'))
-    elif page == PageSix:
-        d.append(mixer.Sound(sounds_path + 'who_did_it.wav'))
-    elif page == PageSeven:
-        d.append(mixer.Sound(sounds_path + 'hire_%s.wav' % gender))
+        d.append(mixer.Sound(sounds_path + 'art_intro_0.wav'))
+        d.append(mixer.Sound(sounds_path + 'art_intro_1_%s.wav'% gender))
+        d.append(mixer.Sound(sounds_path + 'rate_art.wav'))
+    elif page == artTwo:
+        d.append(mixer.Sound(sounds_path + 'caught_young.wav'))
+    elif page == artThree:
+        d.append(mixer.Sound(sounds_path + 'rate_art.wav'))
+    elif page == artFour:
+        d.append(mixer.Sound(sounds_path + 'most_expensive.wav'))
+    elif page == artFive:
+        d.append(mixer.Sound(sounds_path + 'rank_all_9.wav'))
+    elif page == artSix:
+        d.append(mixer.Sound(sounds_path + 'what_was_most_expensive_piece.wav'))
+    elif page == artSeven:
+        d.append(mixer.Sound(sounds_path + 'robot_art_buyer_%s.wav' % gender))
     for i in d:
         while mixer.get_busy():
             pass
@@ -363,12 +373,12 @@ class PageFour(tk.Frame):
 class PageFive(tk.Frame):
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
-
-        image = Image.open(path + 'robots_finshed_talking' + '.png')
-        photo = ImageTk.PhotoImage(image)
-        label = tk.Label(self, image=photo, bg='black')
-        label.image = photo  # keep a reference!
-        label.grid(row=0, columnspan = 4, sticky='e')
+        #
+        # image = Image.open(path + 'robots_finshed_talking' + '.png')
+        # photo = ImageTk.PhotoImage(image)
+        # label = tk.Label(self, image=photo, bg='black')
+        # label.image = photo  # keep a reference!
+        # label.grid(row=0, columnspan = 4, sticky='e')
 
         image = Image.open(path + 'please_rank' + '.png')
         photo = ImageTk.PhotoImage(image)
@@ -445,9 +455,10 @@ class PageSix(tk.Frame):
 
 class PageSeven(tk.Frame):
     def __init__(self, parent, controller):
+        global Gender
         tk.Frame.__init__(self, parent)
         n = -1
-        image = Image.open(path + 'hire_detectivev' + '.png')
+        image = Image.open(path + 'hire_detective_%s' % Gender+ '.png')
         photo = ImageTk.PhotoImage(image)
         label = tk.Label(self, image=photo, bg='black')
         label.image = photo  # keep a reference!
@@ -492,25 +503,24 @@ class EndPage(tk.Frame):
 
 class artOne(tk.Frame):
     global Gender
+    # print(Gender)
+
+
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
 
-        image = Image.open(path + 'painting_intro' + '.png')
+        image = Image.open(path + 'painting_intro_%s.png' % Gender)
         photo = ImageTk.PhotoImage(image)
         label = tk.Label(self, image=photo, bg='black')
         label.image = photo  # keep a reference!
         label.grid(row=0, columnspan=10, sticky='e')
-        print(parent.master.gender)
+        # print(parent.master.gender)
 
-        if Gender == 'm':
-            print('male!')
-
-
-        image = Image.open(path + 'rate' + '.png')
-        photo = ImageTk.PhotoImage(image)
-        label = tk.Label(self, image=photo, bg='black')
-        label.image = photo  # keep a reference!
-        label.grid(row=1, columnspan = 10, sticky='e')
+        # image = Image.open(path + 'rate' + '.png')
+        # photo = ImageTk.PhotoImage(image)
+        # label = tk.Label(self, image=photo, bg='black')
+        # label.image = photo  # keep a reference!
+        # label.grid(row=1, columnspan = 10, sticky='e')
 
 
         scales, i = pleas_rate_art(self, ['a', 'b', 'a_and_b'])
@@ -537,7 +547,7 @@ class artThree(tk.Frame):
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
 
-        image = Image.open(path + 'rate' + '.png')
+        image = Image.open(path + 'art_rate' + '.png')
         photo = ImageTk.PhotoImage(image)
         label = tk.Label(self, image=photo, bg='black')
         label.image = photo  # keep a reference!
@@ -564,12 +574,6 @@ class artFour(tk.Frame):
 class artFive(tk.Frame):
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
-
-        image = Image.open(path + 'robots_finshed_talking' + '.png')
-        photo = ImageTk.PhotoImage(image)
-        label = tk.Label(self, image=photo, bg='black')
-        label.image = photo  # keep a reference!
-        label.grid(row=0, columnspan = 4, sticky='e')
 
         image = Image.open(path + 'painting_rank_all' + '.png')
         photo = ImageTk.PhotoImage(image)
@@ -672,11 +676,10 @@ class artSeven(tk.Frame):
 
 
 class OpeningPage(tk.Frame):
-    global first_story
+    global first_story, Gender
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
-
-        image = Image.open(path + 'begin_text.png')
+        image = Image.open(path + 'opening_%s.png' % Gender)
         photo = ImageTk.PhotoImage(image)
         label = tk.Label(self, image=photo, bg='black')
         label.image = photo  # keep a reference!

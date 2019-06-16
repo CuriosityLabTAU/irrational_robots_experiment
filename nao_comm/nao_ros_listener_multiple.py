@@ -8,7 +8,7 @@ import numpy as np
 
 
 class NaoListenerNodeMultiple():
-    def __init__(self, nao_ip=['192.168.0.101', '192.168.0.100']):
+    def __init__(self, nao_ip=['192.168.0.101', '192.168.0.102']):
     # def __init__(self, nao_ip=['192.168.0.101']):
     # def __init__(self, nao_ip=[]): # test
     # def __init__(self, nao_ip):
