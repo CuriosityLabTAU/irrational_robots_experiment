@@ -530,7 +530,7 @@ def run_story(setup_params, app_thread, robots_publisher, story):
         'qtype'])  ### Based on the answer we would know if one changed the ranking after seeing the robots rankings,
     log_entery(**{'state': 'who_did_it', 'val': who_did_it})
 
-    ### which robot is the detective
+    ### which robot is the detective #
     person_buttons = get_from_kivi(app_thread, test=False, qtype='agree')
     robot_detective = extract_info_from_buttons(person_buttons, question_type='agree')
     log_entery(**{'state': 'detective_robot', 'val': robot_detective})
