@@ -96,39 +96,48 @@ def get_general_p(full_h, all_q, all_P, psi_0, n_qubits=4):
     p_ = norm_psi(psi_final)
     return p_
 
-def compose_H(full_h, all_q, n_qubits=4):
+def compose_H(full_h, all_q, n_qubits=4, fal = 'C'):
     # full_h = [h_a, h_b, h_mix]
     # all_q = [q1, q2]
     H_ = zero_H(n_qubits)
 
-    for q in range(n_qubits):
-        if q == 0:
-            if q == all_q[0]:
-                H_ = param_H(full_h[0])
-            elif q ==  all_q[1]:
-                H_ = param_H(full_h[1])
+    if full_h[0] != None or full_h[1] != None:
+        for q in range(n_qubits):
+            if q == 0:
+                if q == all_q[0]:
+                    H_ = param_H(full_h[0])
+                elif q ==  all_q[1]:
+                    H_ = param_H(full_h[1])
+                else:
+                    H_ = np.eye(2)
             else:
-                H_ = np.eye(2)
-        else:
-            if q == all_q[0]:
-                H_ = np.kron(H_, param_H(full_h[0]))
-            elif q == all_q[1]:
-                H_ = np.kron(H_, param_H(full_h[1]))
-            else:
-                H_ = np.kron(H_, np.eye(2))
+                if q == all_q[0]:
+                    H_ = np.kron(H_, param_H(full_h[0]))
+                elif q == all_q[1]:
+                    H_ = np.kron(H_, param_H(full_h[1]))
+                else:
+                    H_ = np.kron(H_, np.eye(2))
 
     if full_h[2] == None:
         Hmix_ = np.zeros([2 ** n_qubits, 2 ** n_qubits])
     else:
         Hmix_0 = param_Hmix(full_h[2])
-        mix = np.zeros([4, 4])
+        mix = np.matrix(np.zeros([4, 4]), dtype = 'complex64')
 
-        mix[0, 0] = 1
-        mix[1, 1] = 1
-        mix[2, 2] = 1
-        mix[3, 3] = 1
-        mix[1, 2] = Hmix_0[0, 0]
-        mix[2, 1] = Hmix_0[0, 0]
+        if fal == 'C':
+            mix[0, 3] = Hmix_0[0, 1]
+            mix[1, 3] = Hmix_0[0, 1]
+            mix[2, 3] = Hmix_0[0, 1]
+            mix[3, 0] = Hmix_0[1, 0]
+            mix[3, 1] = Hmix_0[1, 0]
+            mix[3, 2] = Hmix_0[1, 0]
+        elif fal == 'D':
+            mix[0, 1] = Hmix_0[0, 1]
+            mix[0, 2] = Hmix_0[0, 1]
+            mix[0, 3] = Hmix_0[0, 1]
+            mix[1, 0] = Hmix_0[1, 0]
+            mix[2, 0] = Hmix_0[1, 0]
+            mix[3, 0] = Hmix_0[1, 0]
 
         for q in range(n_qubits - 2):
             mix = np.kron(mix, np.eye(2))

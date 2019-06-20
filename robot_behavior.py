@@ -24,6 +24,8 @@ from time import sleep
 from datetime import datetime
 import sys
 
+import general_quantum_operators as gqo
+
 from pygame import mixer
 # mixer.init(frequency=16000, size=-16, channels=2, buffer=2048)
 # mixer.init(frequency=44100, size=-16, channels=2, buffer=2048)
@@ -306,18 +308,15 @@ def robot_behavior(robots_publisher, which_robot, H_robot, H_person, question_qu
 
 def robot_probs(psi, full_h, all_q, fallacy, n_qubits = 4):
     ### calculate the probabilities of the robot
-    p_i = get_general_p(full_h, all_q, '0', psi, n_qubits=4)
-    p_j = get_general_p(full_h, all_q, '1', psi, n_qubits=4)
+    p_i = gqo.get_general_p([full_h[0], None, None], all_q, '0', psi, n_qubits=4)
+    p_j = gqo.get_general_p([None, full_h[1], None], all_q, '1', psi, n_qubits=4)
+    p_ij = gqo.get_general_p([None, None, full_h[2]], all_q, fallacy.capitalize()[0], psi, n_qubits=4)
 
-    if fallacy == 'conj':
-        p_ij = get_general_p(full_h, all_q, 'C', psi, n_qubits=4)
-    elif fallacy == 'disj':
-        p_ij = get_general_p(full_h, all_q, 'D', psi, n_qubits=4)
     ps = [p_i, p_j, p_ij]
 
     if fallacy == 'both':
-        p_ijc = get_general_p(full_h, all_q, 'C', psi, n_qubits=4)
-        p_ijd = get_general_p(full_h, all_q, 'D', psi, n_qubits=4)
+        p_ijc = gqo.get_general_p(full_h, all_q, 'C', psi, n_qubits=4)
+        p_ijd = gqo.get_general_p(full_h, all_q, 'D', psi, n_qubits=4)
         ps = [p_i, p_j, p_ijc, p_ijd]
 
     return ps
