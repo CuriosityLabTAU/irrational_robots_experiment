@@ -6,3 +6,7 @@ h = [-0.9989711556,1,-0.6474543747,0.5060843493,0.5758584677,0.197824478,-0.8921
 U_suspects = gpo.U_from_H(gpo.grandH_from_x(h))
 
 pd.DataFrame(U_suspects).to_csv('U_suspect.csv')
+
+U = pd.read_csv('U_suspect.csv', index_col=0).applymap(complex)
+
+print(U.shape)

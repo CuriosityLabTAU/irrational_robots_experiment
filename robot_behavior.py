@@ -116,14 +116,14 @@ def robots_answering_order():
 
 
 def run_robot_behavior(robots_publisher, which_robot, message):
-    # if 'parameters' in message:
-    #     signal = message['parameters'][0]
-    #     robot_end_signal[signal] = False
-    # robots_publisher[which_robot-1].publish(json.dumps(message))
-    # if 'parameters' in message:
-    #     while not robot_end_signal[signal]:
-    #         pass
-    pass
+    if 'parameters' in message:
+        signal = message['parameters'][0]
+        robot_end_signal[signal] = False
+    robots_publisher[which_robot-1].publish(json.dumps(message))
+    if 'parameters' in message:
+        while not robot_end_signal[signal]:
+            pass
+    # pass
 
 
 def callback_nao_state(data):
@@ -155,7 +155,8 @@ def intialize_robots_comm(num_robots):
     return robots_publisher
 
 
-def intialize_robots_H(rationality, df, hs = None):
+def intialize_robots_H(rationality, df_, hs = None):
+    df = df_.copy()
     H = {}
     if hs == None:
         H = {'h_a': [], 'h_b': [], 'h_ab': [],
@@ -412,8 +413,8 @@ def run_story(setup_params, app_thread, robots_publisher, story):
     rationality_df = pd.read_csv('p_from_h.csv')
     rationality_df['irr_conj'] = rationality_df['pab_c'] - rationality_df[['pa', 'pb']].max(axis=1)
     print('setup_params*****************************************',setup_params)
-    H1 = intialize_robots_H(rationality=setup_params['red rationality'],  df=rationality_df, hs=None)  # hs - to create the ir/rationality
-    H2 = intialize_robots_H(rationality=setup_params['blue rationality'], df=rationality_df, hs=None)
+    H1 = intialize_robots_H(rationality=setup_params['red rationality'],  df_=rationality_df, hs=None)  # hs - to create the ir/rationality
+    H2 = intialize_robots_H(rationality=setup_params['blue rationality'], df_=rationality_df, hs=None)
 
     robots = {'H': {1: H1, 2: H2},
               'state': {1: robot1_state, 2: robot2_state},
@@ -452,7 +453,7 @@ def run_story(setup_params, app_thread, robots_publisher, story):
     t = 8
     if story == 'art':
         t = 5
-    # sleep(t)
+    sleep(t)
 
     ### generate robots answer
     for r in answering_order:
@@ -500,7 +501,7 @@ def run_story(setup_params, app_thread, robots_publisher, story):
     t = 12
     if story == 'art':
         t = 8
-    # sleep(t)
+    sleep(t)
 
     ### generate robots answer
     answering_order = robots_answering_order()
@@ -522,7 +523,7 @@ def run_story(setup_params, app_thread, robots_publisher, story):
     person_rankings = extract_info_from_buttons(person_buttons, question_type=cq['qtype'])
     log_entery(**{'state': 'person_rankings' + q, 'val': person_rankings})
 
-    # sleep(3)
+    sleep(3)
     answering_order = robots_answering_order()
     ### robots gives ranking
     for r in answering_order:

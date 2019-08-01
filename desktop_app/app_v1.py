@@ -6,7 +6,7 @@ import Tkinter as tk
 
 from pygame import mixer
 
-mixer.init(frequency=100, size=-16, channels=2, buffer=2048)
+# mixer.init(frequency=100, size=-16, channels=2, buffer=2048)
 import pygame
 
 pygame.init()
