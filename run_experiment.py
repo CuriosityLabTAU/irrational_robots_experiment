@@ -3,7 +3,7 @@ import os
 
 num_of_robots = 2
 ###     first ip - red , second ip - blue
-naos = ['192.168.0.101', '192.168.0.102']
+naos = ['192.168.0.100', '192.168.0.101']
 
 # naos = ['192.168.0.101']
 # naos = [[],[]]
@@ -61,9 +61,9 @@ for n in nao_s:
     t3.start()
     print('========= nao_ros is running =========')
 #
-    t4 = threading.Thread(target=worker4, args=(n,))
-    t4.start()
-    print('========= nao_subconscious is running =========')
+    # t4 = threading.Thread(target=worker4, args=(n,))
+    # t4.start()
+    # print('========= nao_subconscious is running =========')
 
 threading._sleep(5)
 

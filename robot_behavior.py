@@ -41,7 +41,9 @@ num_robots = 2
 robot_sound_path = '/home/nao/naoqi/sounds/HCI/'
 ### path to behaviors on the robot
 # robot_behavior_path = 'torr_test_v1-3714cd/'
-robot_behavior_path = 'irrational_robots/'
+# robot_behavior_path = 'irrational_robots/'
+# robot_behavior_path = 'irr_robots/'
+robot_behavior_path = 'suspects_art/'
 
 
 ### global robot flow parameters
@@ -63,8 +65,10 @@ art_information = {'0': {'qq': [0, 1], 'qtype': 'rate'},
 
 
 ### initial psi for evereyone
-plus = np.array([1, 0, 0, 1]) / np.sqrt(2)
-psi0 = np.kron(plus, plus).reshape(16,1)
+# plus = np.array([1, 0, 0, 1]) / np.sqrt(2)
+# psi0 = np.kron(plus, plus).reshape(16,1)
+dim = 4 ** 2 ### number of dimensions
+psi0 = np.ones([dim,1]) / np.sqrt(dim)
 
 ### dummy varibales for checking the code
 stories = ['a', 'b', 'c', 'd'] # add questions: which robot do you agree with?, rank in descending order. etc.
@@ -112,13 +116,14 @@ def robots_answering_order():
 
 
 def run_robot_behavior(robots_publisher, which_robot, message):
-    if 'parameters' in message:
-        signal = message['parameters'][0]
-        robot_end_signal[signal] = False
-    robots_publisher[which_robot-1].publish(json.dumps(message))
-    if 'parameters' in message:
-        while not robot_end_signal[signal]:
-            pass
+    # if 'parameters' in message:
+    #     signal = message['parameters'][0]
+    #     robot_end_signal[signal] = False
+    # robots_publisher[which_robot-1].publish(json.dumps(message))
+    # if 'parameters' in message:
+    #     while not robot_end_signal[signal]:
+    #         pass
+    pass
 
 
 def callback_nao_state(data):
@@ -151,10 +156,11 @@ def intialize_robots_comm(num_robots):
 
 
 def intialize_robots_H(rationality, df, hs = None):
-    H = {'h_a': [], 'h_b': [], 'h_ab': [],
-         'h_c': [], 'h_d': [], 'h_cd': [],
-         'h_ac': [], 'h_ad': [], 'h_bc': [], 'h_bd': [], 'h_cd': []}
+    H = {}
     if hs == None:
+        H = {'h_a': [], 'h_b': [], 'h_ab': [],
+             'h_c': [], 'h_d': [], 'h_cd': [],
+             'h_ac': [], 'h_ad': [], 'h_bc': [], 'h_bd': [], 'h_cd': []}
         if rationality  == 'rational':
             H['h_ab'] = 1
         elif rationality  == 'irrational':
@@ -163,11 +169,14 @@ def intialize_robots_H(rationality, df, hs = None):
         for k, v in hs.items():
             H[k] = v
 
+    df = df[df['pa'] > .1].copy()
+    df = df[df['pb'] > .1].copy()
+
     ### sub sample the dataframe according to the rationality
     if rationality == 'rational':
-        df = df[df['irr_conj'] < -0.8]
+        df = df[df['irr_conj'] < -0.5].copy()
     elif rationality == 'irrational':
-        df = df[df['irr_conj'] > 0.8]
+        df = df[df['irr_conj'] > 0.5].copy()
 
     ### take random sample from the dataframe
     a = df[['ha','hb','hab']].sample(1)
@@ -245,8 +254,8 @@ def generate_robot_behavior(robots_publisher, which_robot, ps, question_qubits, 
             ### turn qubits to letters.
             probs = {}
             for i, q in enumerate(question_qubits):
-                probs[hq[q]] = int(10 * np.round(ps[i]*10).flatten()[0])
-            probs[hq[question_qubits[0]] + '_and_' + hq[question_qubits[1]]] = int(10 * np.round(ps[-1]*10).flatten()[0])
+                probs[hq[q]] = int(10 * np.round(ps[i].flatten()[0]*10).flatten()[0])
+            probs[hq[question_qubits[0]] + '_and_' + hq[question_qubits[1]]] = int(10 * np.ceil(ps[-1].flatten()[0]*10).flatten()[0])
 
             ### arange the probs by their value.
             probs = sorted(probs.items(), key=operator.itemgetter(0))
@@ -293,6 +302,7 @@ def robot_behavior(robots_publisher, which_robot, H_robot, H_person, question_qu
 
         ### calculate robots probability
         ps = robot_probs(psi, full_h, question_qubits, 'conj', n_qubits=4)
+        print('ps----',which_robot,'----- ', ps) # for debugging
 
         total_H = compose_H(full_h, question_qubits, n_qubits=4)
         psi_final = get_psi(total_H, psi)
@@ -313,11 +323,6 @@ def robot_probs(psi, full_h, all_q, fallacy, n_qubits = 4):
     p_ij = gqo.get_general_p([None, None, full_h[2]], all_q, fallacy.capitalize()[0], psi, n_qubits=4)
 
     ps = [p_i, p_j, p_ij]
-
-    if fallacy == 'both':
-        p_ijc = gqo.get_general_p(full_h, all_q, 'C', psi, n_qubits=4)
-        p_ijd = gqo.get_general_p(full_h, all_q, 'D', psi, n_qubits=4)
-        ps = [p_i, p_j, p_ijc, p_ijd]
 
     return ps
 
@@ -380,10 +385,12 @@ def get_from_kivi(app_thread = None, test = True, qtype = 'rate'):
         return output
 
 
-def get_U_question():
-    U = pd.read_csv('U.csv', index_col = 0).applymap(complex)
-    # U = pd.read_csv('/home/irina/PycharmProjects/irrational_robots_experiment_v1/U.csv').values
-    # np.eye(16, 16)
+def get_U_question(story):
+    if story == 'art':
+        U = pd.read_csv('U_art.csv', index_col = 0).applymap(complex)
+    if story == 'suspect':
+        U = pd.read_csv('U_suspect.csv', index_col=0).applymap(complex)
+
     return U
 
 def run_story(setup_params, app_thread, robots_publisher, story):
@@ -403,6 +410,8 @@ def run_story(setup_params, app_thread, robots_publisher, story):
 
     ### robot 1 --> red, robot 2 --> blue !!!
     rationality_df = pd.read_csv('p_from_h.csv')
+    rationality_df['irr_conj'] = rationality_df['pab_c'] - rationality_df[['pa', 'pb']].max(axis=1)
+    print('setup_params*****************************************',setup_params)
     H1 = intialize_robots_H(rationality=setup_params['red rationality'],  df=rationality_df, hs=None)  # hs - to create the ir/rationality
     H2 = intialize_robots_H(rationality=setup_params['blue rationality'], df=rationality_df, hs=None)
 
@@ -443,7 +452,7 @@ def run_story(setup_params, app_thread, robots_publisher, story):
     t = 8
     if story == 'art':
         t = 5
-    sleep(t)
+    # sleep(t)
 
     ### generate robots answer
     for r in answering_order:
@@ -485,13 +494,13 @@ def run_story(setup_params, app_thread, robots_publisher, story):
 
     ### propogate the state using U
     # start with I - identity.
-    Uq = get_U_question()
+    Uq = get_U_question(story)
     log_entery(**{'state': 'U_matrix' + q, 'val': Uq})
 
     t = 12
     if story == 'art':
         t = 8
-    sleep(t)
+    # sleep(t)
 
     ### generate robots answer
     answering_order = robots_answering_order()
@@ -513,7 +522,7 @@ def run_story(setup_params, app_thread, robots_publisher, story):
     person_rankings = extract_info_from_buttons(person_buttons, question_type=cq['qtype'])
     log_entery(**{'state': 'person_rankings' + q, 'val': person_rankings})
 
-    sleep(3)
+    # sleep(3)
     answering_order = robots_answering_order()
     ### robots gives ranking
     for r in answering_order:
@@ -530,9 +539,9 @@ def run_story(setup_params, app_thread, robots_publisher, story):
     log_entery(**{'state': 'who_did_it', 'val': who_did_it})
 
     ### which robot is the detective #
-    person_buttons = get_from_kivi(app_thread, test=False, qtype='agree')
-    robot_detective = extract_info_from_buttons(person_buttons, question_type='agree')
-    log_entery(**{'state': 'detective_robot', 'val': robot_detective})
+    # person_buttons = get_from_kivi(app_thread, test=False, qtype='agree')
+    # robot_detective = extract_info_from_buttons(person_buttons, question_type='agree')
+    # log_entery(**{'state': 'detective_robot', 'val': robot_detective})
 
 
     ### app closed after second story ended
@@ -593,7 +602,7 @@ def flow():
     run_story(setup_params, app_thread, robots_publisher, second_story)
 
     my_logger = my_logger[['time','state', 'val']]
-    my_logger.to_csv('my_logger_{date:%Y-%m-%d %H:%M:%S}.csv'.format( date=datetime.now()))
+    my_logger.to_csv('logs/my_logger_{date:%Y-%m-%d %H:%M:%S}.csv'.format( date=datetime.now()))
 
     for r in range(num_robots):
         action = {"action": "rest"}
