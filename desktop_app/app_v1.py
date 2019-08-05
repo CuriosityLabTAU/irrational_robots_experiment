@@ -41,7 +41,7 @@ class SeaofBTCapp(tk.Tk):
         self.frames = {}
 
         for F in (
-        StartPage, ControlScreen, OpeningPage, PageOne, PageTwo, PageThree, PageFour, PageFive, PageSix, PageSeven,
+        StartPage, ControlScreen, ParticipantStart, OpeningPage, PageOne, PageTwo, PageThree, PageFour, PageFive, PageSix, PageSeven,
         artOne, artTwo, artThree, artFour, artFive, artSix, artSeven,
         case2, EndPage):
             frame = F(container, self)
@@ -76,7 +76,8 @@ def transition(widget_values, controller, page, gender='f', parent=None, p=None)
     if p == 'case2':
         p = list(set(['suspect', 'art']) - set([first_story]))[0]
 
-    if page == OpeningPage:
+    # if page == OpeningPage:
+    if page == ParticipantStart:
         Gender = widget_values['gender'].get()
         first_story = widget_values['first story'].get()
 
@@ -254,7 +255,8 @@ class ControlScreen(tk.Frame):
 
         Gender = enteries['gender'].get().strip().lower()
 
-        next_button(self, enteries, controller, OpeningPage, 10)
+        # next_button(self, enteries, controller, OpeningPage, 10)
+        next_button(self, enteries, controller, ParticipantStart, 10)
 
 
 class PageOne(tk.Frame):
@@ -739,6 +741,23 @@ class case2(tk.Frame):
                       command=lambda: transition(None, controller, [PageOne, artOne], parent.master.gender, p='case2'))
 
         b.grid(row=2, pady=10)
+        b.image = photo
+
+
+class ParticipantStart(tk.Frame):
+    global first_story
+
+    def __init__(self, parent, controller):
+        tk.Frame.__init__(self, parent)
+
+        clr = '#%02x%02x%02x' % (146, 208, 80)
+        image = Image.open(path + 'begin_button' + '.png')
+        photo = ImageTk.PhotoImage(image)
+
+        b = tk.Button(self, image=photo, bg=clr,
+                      command=lambda: transition(None, controller, OpeningPage, parent.master.gender))
+
+        b.grid(row=0, pady=10)
         b.image = photo
 
 

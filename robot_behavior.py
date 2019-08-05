@@ -123,7 +123,6 @@ def run_robot_behavior(robots_publisher, which_robot, message):
     if 'parameters' in message:
         while not robot_end_signal[signal]:
             pass
-    # pass
 
 
 def callback_nao_state(data):
@@ -435,7 +434,7 @@ def run_story(setup_params, app_thread, robots_publisher, story):
     person_buttons = ast.literal_eval(person_buttons)
 
     print(person_buttons)
-
+    print('****************************')
     log_entery(**{'state': 'person_input' + q, 'val': person_buttons})
 
     person['H'], person['state']['1'] = person_parameters(person_buttons, person_state=person['state']['0'],
@@ -592,6 +591,9 @@ def flow():
     setup_params = app_thread.stdout.readline()
     log_entery(**{'state':'robots_setup','val':str(setup_params)})
     setup_params = ast.literal_eval(setup_params)
+
+    ### Particioant press start
+    # ____ = app_thread.stdout.readline()
 
     ### which story to present first: suspect/ art
     first_story = setup_params['first story']
